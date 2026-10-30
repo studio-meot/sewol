@@ -81,6 +81,10 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .tag .nm { background: rgba(27,23,18,.62); padding: 2px 9px; border-radius: 999px; }
 .tag .nm i { font-style: normal; color: var(--gold); margin-left: 6px; font-variant-numeric: tabular-nums; }
 .tag.me .nm { background: rgba(217,88,59,.85); }
+.tag.far { font-size: 10px; opacity: .85; }
+.tag.far .nm { padding: 1px 6px; }
+.tag.far .nm > span { display: none; }
+.tag.far .nm i { margin-left: 0; }
 .bubble { position: absolute; transform: translate(-50%, -100%); background: var(--paper); color: var(--ink); font-family: var(--font-display); font-size: 14px; padding: 7px 13px; border-radius: 14px; max-width: 220px; white-space: normal; text-align: center; text-wrap: balance; box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: opacity .4s; }
 .bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--paper); }
 
@@ -488,6 +492,9 @@ me.position.set(0, 0.25, 1.1); scene.add(me);
 
 // spots for others along the bank
 const SPOTS = [[-2.9, 0.7], [2.9, 0.6], [-6.0, 1.4], [5.8, 1.2], [-8.8, 0.8], [8.6, 1.0], [-11.6, 1.5], [11.4, 1.3], [-14.2, 0.9], [14.2, 1.5], [-16.8, 1.2], [17, 0.9], [-19.4, 1.4], [19.6, 1.1]];
+// 이쪽 둑이 차면 건너편 둑에 우리를 마주 보고 앉는다
+const FAR_SPOTS = Array.from({ length: 16 }, (_, i) => [(i % 2 ? 1 : -1) * (2 + Math.floor(i / 2) * 4), -42.3]);
+const SEATS = SPOTS.concat(FAR_SPOTS);
 const ROBES = ['#8a6b8f', '#5f7f63', '#9a6a52', '#56708f', '#8f8352', '#7a5a6a', '#4f6f74', '#a0705a', '#6a6a8a', '#7f8f5a'];
 function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
@@ -618,7 +625,7 @@ function startDeer() {
   } else {
     const dir = Math.random() < 0.5 ? 1 : -1, s = 1.5;
     shoreDeer.scale.setScalar(s); shoreDeer.rotation.y = dir > 0 ? 0 : Math.PI;
-    shoreDeer.position.set(-dir * 34, 0.6, -42.6); shoreDeer.visible = true;
+    shoreDeer.position.set(-dir * 34, 0.6, -44.8); shoreDeer.visible = true;
     deer = { kind: 'shore', g: shoreDeer, t: 0, dir, stopX: rand(-14, 14), drink: 0, drank: false };
   }
 }
@@ -774,6 +781,67 @@ const stars = (() => {
   const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#fff8ea', size: 1.8, sizeAttenuation: false, fog: false, transparent: true, opacity: 0, depthWrite: false }));
   scene.add(p); return p;
 })();
+// 비와 눈: 한국 시간 25분 단위로 정해져서 모두가 같은 때 비를 맞는다. 겨울인 사람에겐 눈으로 내린다. ?weather=rain|snow|clear
+const WEATHER_Q = new URLSearchParams(location.search).get('weather');
+function precipNow() {
+  if (WEATHER_Q) return WEATHER_Q !== 'clear';
+  const block = Math.floor((Date.now() / 60000 + 540) / 25);
+  let h = Math.imul(block ^ 0x5bd1e995, 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
+  return h % 100 < 16;
+}
+let weather = 'clear', wTarget = 0, wK = 0, weatherTimer = 99, weatherLook = 0, weatherFirst = true;
+const RN = 700, rainPos = new Float32Array(RN * 6), rainP = new Float32Array(RN * 3);
+const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: '#c9d3dc', transparent: true, opacity: 0, depthWrite: false }));
+rain.frustumCulled = false; scene.add(rain);
+const SN = 700, snowPos = new Float32Array(SN * 3), snowPh = new Float32Array(SN);
+const snowGeo = new THREE.BufferGeometry(); snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
+const snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({ color: '#ffffff', size: 0.16, transparent: true, opacity: 0, depthWrite: false, map: radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), alphaTest: 0.02 }));
+snow.frustumCulled = false; scene.add(snow);
+const dropAt = (arr, i, y) => arr.set([me.position.x + (Math.random() - 0.5) * 52, y, -30 + Math.random() * 39], i * 3);
+for (let i = 0; i < RN; i++) dropAt(rainP, i, Math.random() * 14);
+for (let i = 0; i < SN; i++) { dropAt(snowPos, i, Math.random() * 12); snowPh[i] = Math.random() * 6; }
+function updateWeather(dt) {
+  weatherTimer += dt;
+  if (weatherTimer > 10) {
+    weatherTimer = 0;
+    const p = precipNow(), want = p ? (curSeason === 3 ? 'snow' : 'rain') : null;
+    if (want) {
+      if (want !== weather && !weatherFirst) toast(want === 'rain' ? '비가 오기 시작했어요. 곧은 바늘은 젖어도 곧아요.' : '눈이 내려요. 삿갓 위에 세월이 쌓여요.');
+      weather = want; wTarget = 1;
+    } else {
+      if (wTarget === 1 && !weatherFirst) toast(weather === 'snow' ? '눈이 그쳤어요. 강가가 하얘졌어요.' : '비가 그쳤어요. 강 냄새가 짙어요.');
+      wTarget = 0;
+    }
+    if (weatherFirst) { wK = wTarget; weatherFirst = false; applyLook(); updateClock(); }
+    else updateClock();
+  }
+  if (Math.abs(wTarget - wK) > 0.001) {
+    wK += Math.sign(wTarget - wK) * Math.min(Math.abs(wTarget - wK), dt / 8);
+    weatherLook += dt; if (weatherLook > 0.5) { weatherLook = 0; applyLook(); }
+    if (wK < 0.002 && wTarget === 0) weather = 'clear';
+  }
+  sfx.setRain(weather === 'rain' ? wK : 0);
+  const isRain = weather === 'rain', isSnow = weather === 'snow';
+  rain.material.opacity = isRain ? 0.5 * wK : 0; snow.material.opacity = isSnow ? 0.95 * wK : 0;
+  if (isRain && wK > 0) {
+    for (let i = 0; i < RN; i++) {
+      const o = i * 3; rainP[o + 1] -= 17 * dt; rainP[o] -= 1.2 * dt;
+      if (rainP[o + 1] < 0) dropAt(rainP, i, 12 + Math.random() * 3);
+      rainPos.set([rainP[o], rainP[o + 1], rainP[o + 2], rainP[o] + 0.05, rainP[o + 1] + 0.5, rainP[o + 2]], i * 6);
+    }
+    rainGeo.attributes.position.needsUpdate = true;
+    if (Math.random() < dt * 14 * wK) ripple({ x: me.position.x + (Math.random() - 0.5) * 36, z: -1.5 - Math.random() * 16 }, 0.28);
+  }
+  if (isSnow && wK > 0) {
+    for (let i = 0; i < SN; i++) {
+      const o = i * 3; snowPh[i] += dt;
+      snowPos[o + 1] -= 1.1 * dt; snowPos[o] += Math.sin(snowPh[i] * 0.9) * 0.4 * dt; snowPos[o + 2] += Math.cos(snowPh[i] * 0.7) * 0.2 * dt;
+      if (snowPos[o + 1] < 0) dropAt(snowPos, i, 11 + Math.random() * 2);
+    }
+    snowGeo.attributes.position.needsUpdate = true;
+  }
+}
 let curSeason = -1, curTod = -1, night = 0;
 const cA = new THREE.Color(), cB = new THREE.Color(), cMix = new THREE.Color();
 function applyLook() {
@@ -788,17 +856,21 @@ function applyLook() {
     });
     L[key] = '#' + cMix.getHexString();
   }
+  if (wK > 0) {
+    const G = { top: '#4a525e', mid: '#7a8189', low: '#959ba1', fog: '#868c93', water: '#3c4b52' }, bb = 0.45 + 0.55 * (1 - w[0]);
+    for (const key in G) L[key] = '#' + cA.set(L[key]).lerp(cB.set(G[key]).multiplyScalar(bb), 0.6 * wK).getHexString();
+  }
   night = w[0];
-  const br = w[0] * 0.42 + w[1] * 0.8 + w[2] * 1.1 + w[3];
+  const br = (w[0] * 0.42 + w[1] * 0.8 + w[2] * 1.1 + w[3]) * (1 - 0.22 * wK);
   paintSky(L); scene.fog.color.set(L.fog);
   ground.material.color.set(p.ground).multiplyScalar(br); strandMat.color.set(p.leaf).multiplyScalar(br); crown.material.color.set(p.leaf).multiplyScalar(br);
   water.material.color.set(L.water); water.material.specular.set(night > 0.5 ? '#6f7fa8' : '#ffcf8a');
   ridges.forEach((r, i) => { cA.set(['#9b7f7a', '#7d6b67', '#5c5450'][i]).multiplyScalar(br); cB.set(L.fog); r.material.color.copy(cA.lerp(cB, s === 3 ? 0.3 - i * 0.08 : 0.15 + 0.12 * w[2])); });
   hemi.intensity = 0.85 * br; fill.intensity = 0.25 + night * 0.2;
-  sunLight.intensity = 1.05 * (1 - night * 0.7);
+  sunLight.intensity = 1.05 * (1 - night * 0.7) * (1 - 0.55 * wK);
   sunLight.color.set(night > 0.5 ? '#9fb3ff' : w[2] > 0.5 ? '#fff0d6' : '#ffc07a');
-  sun.position.y = 9 + w[2] * 22 + w[1] * 2; sun.material.opacity = 1 - night;
-  moon.material.opacity = night; stars.material.opacity = night * 0.95;
+  sun.position.y = 9 + w[2] * 22 + w[1] * 2; sun.material.opacity = (1 - night) * (1 - 0.85 * wK);
+  moon.material.opacity = night * (1 - 0.9 * wK); stars.material.opacity = night * 0.95 * (1 - wK);
   const tod = w.reduce((a, v, i) => v > w[a] ? i : a, 0);
   if (tod !== curTod) { curTod = tod; updateClock(); }
 }
@@ -819,7 +891,7 @@ function toast(msg, ms = 4200) {
 function updateClock() {
   $('clockVal').textContent = fmt(S.session);
   $('clock').classList.toggle('idle', !S.fishing);
-  const season = SEASONS[seasonOf(S.total + S.session)] + (curTod >= 0 ? ' ' + TOD_NAMES[curTod] : '');
+  const season = SEASONS[seasonOf(S.total + S.session)] + (curTod >= 0 ? ' ' + TOD_NAMES[curTod] : '') + (wTarget ? (weather === 'snow' ? ' · 눈' : ' · 비') : '');
   $('clockMeta').textContent = S.fishing
     ? `${PACE} · ${season}`
     : `장부에 적은 세월 ${fmtShort(S.total)} · ${season}`;
@@ -991,7 +1063,7 @@ $('ledgerClose').onclick = () => toggleLedger(false);
 
 /* ---------------- sound ---------------- */
 const sfx = (() => {
-  let ctx = null, master = null, noise = null, on = false, birdT = 0;
+  let ctx = null, master = null, noise = null, rainGain = null, rainLvl = -1, on = false, birdT = 0;
   function build() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
@@ -1003,6 +1075,11 @@ const sfx = (() => {
     const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.13; lg.gain.value = 0.18; lfo.connect(lg); lg.connect(g.gain); lfo.start();
     src.connect(lp); lp.connect(g); g.connect(master); src.start();
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    // 빗소리: 높은 쪽만 남긴 잡음
+    const rb = ctx.createBufferSource(); rb.buffer = noise; rb.loop = true;
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
+    const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 6500;
+    rainGain = ctx.createGain(); rainGain.gain.value = 0; rb.connect(hp); hp.connect(lp2); lp2.connect(rainGain); rainGain.connect(master); rb.start();
   }
   function out(node, pan) {
     if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)) * 0.8; node.connect(p); p.connect(master); }
@@ -1050,6 +1127,10 @@ const sfx = (() => {
     },
     plop() { setTimeout(() => { tone(700, 140, 0.22, 0.35); }, 600); },
     gong() { [110, 220.5, 331, 523].forEach((f, i) => tone(f, f * 0.995, 5 - i, 0.25 / (i + 1))); },
+    setRain(k) {
+      if (!rainGain || Math.abs(k - rainLvl) < 0.02) return;
+      rainLvl = k; rainGain.gain.setTargetAtTime(k * 0.32, ctx.currentTime, 0.6);
+    },
     call(kind, pan, vol) { if (on && CALLS[kind]) CALLS[kind](pan, vol); },
     splash(vol, pan) {
       if (!ctx || !on) return;
@@ -1071,6 +1152,18 @@ const sfx = (() => {
   };
 })();
 $('btnSound').onclick = () => sfx.toggle();
+
+// 탭 제목: 다른 탭을 보고 있어도 강가가 말을 건다
+const BASE_TITLE = document.title;
+let titleNote = '', titleFlip = false;
+function noteTitle(msg, weak) { if (document.hidden && !(weak && titleNote)) titleNote = msg; }
+setInterval(() => {
+  if (!document.hidden) { document.title = S.fishing && S.session >= 1 ? `🎣 ${fmtShort(S.session)} · ${BASE_TITLE}` : BASE_TITLE; return; }
+  titleFlip = !titleFlip;
+  const msg = titleNote || (S.fishing ? '🎣 찌가 기다리고 있어요' : '');
+  document.title = msg && titleFlip ? msg : BASE_TITLE;
+}, 2000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) titleNote = ''; });
 
 /* ---------------- multiplayer: Supabase (presence + ledger) ---------------- */
 const CFG = window.SEWOL_CONFIG || {};
@@ -1102,7 +1195,7 @@ function syncPeers(list) {
   const rest = list.filter(p => !p.sameTab && p.kind === 'viewer').sort((a, b) => a.peer < b.peer ? -1 : 1);
   $('ppl').textContent = String(rest.length + 1);
   const keep = new Set();
-  rest.slice(0, SPOTS.length).forEach((p, i) => {
+  rest.slice(0, SEATS.length).forEach((p, i) => {
     keep.add(p.peer);
     let o = others.get(p.peer);
     if (!o) {
@@ -1110,8 +1203,14 @@ function syncPeers(list) {
       newSpot(g.userData); g.userData.castTarget = 0;
       scene.add(g); o = { g, tag: makeTag(), lastEmote: null, idx: i };
       others.set(p.peer, o);
+      noteTitle('👤 누가 강가에 와서 앉았어요', true);
     }
-    const [x, z] = SPOTS[i]; o.g.position.set(x, 0.25, z); o.g.rotation.y = -x * 0.012; o.idx = i;
+    const [x, z] = SEATS[i], far = i >= SPOTS.length;
+    o.tag.classList.toggle('far', far);
+    o.lift = far && Math.floor((x + 100) / 4) % 2 ? 3.5 : 2.8;
+    if (far) { o.g.position.set(x, 0.6, z); o.g.rotation.y = Math.PI + x * 0.008; o.g.scale.setScalar(1.5); }
+    else { o.g.position.set(x, 0.25, z); o.g.rotation.y = -x * 0.012; o.g.scale.setScalar(1); }
+    o.idx = i;
     const pr = p.presence || {};
     o.g.userData.castTarget = pr.fishing ? 1 : 0;
     o.by = p.by;
@@ -1129,6 +1228,7 @@ function syncPeers(list) {
         const giver = nm || nameFor(o.by, i);
         if (em.to === S.tabId) {
           flyTea(o.g, me);
+          noteTitle('🍵 차 한잔이 도착했어요');
           setTimeout(() => { say(me, '(따뜻하다)'); sfx.call('clink', 0, 1); toast(`${giver}님이 차 한잔을 건넸어요`); }, 1300);
         } else { const r = others.get(em.to); if (r) flyTea(o.g, r.g); }
       } else if (!first) {
@@ -1270,6 +1370,7 @@ function frame() {
   uiTimer += dt; if (uiTimer > 0.25) { uiTimer = 0; updateClock(); pushPresence(false); }
   applySeason(seasonOf(S.total + S.session));
   lookTimer += dt; if (lookTimer > 20) { lookTimer = 0; applyLook(); }
+  updateWeather(dt);
 
   // water waves
   const wp = waterGeo.attributes.position.array;
@@ -1278,7 +1379,7 @@ function frame() {
     wp[i + 1] = Math.sin(x * 0.35 + t * 0.9) * 0.06 + Math.sin(z * 0.5 + t * 1.3 + x * 0.1) * 0.05;
   }
   waterGeo.attributes.position.needsUpdate = true; waterGeo.computeVertexNormals();
-  glint.material.opacity = (0.42 + Math.sin(t * 0.8) * 0.1) * (1 - night * 0.65);
+  glint.material.opacity = (0.42 + Math.sin(t * 0.8) * 0.1) * (1 - night * 0.65) * (1 - 0.8 * wK);
 
   reeds.forEach(r => { r.rotation.z = Math.sin(t * 0.9 + r.userData.ph) * 0.08; });
   strands.forEach(s => { s.rotation.z = Math.sin(t * 0.7 + s.userData.ph) * 0.07; s.rotation.x = Math.sin(t * 0.5 + s.userData.ph * 1.3) * 0.05; });
@@ -1334,7 +1435,7 @@ function frame() {
   renderer.render(scene, camera);
 
   placeLabel(myTag, me, 2.8); myTag.style.visibility = bubbles.has(me) ? 'hidden' : '';
-  for (const o of others.values()) { placeLabel(o.tag, o.g, 2.8); o.tag.style.visibility = bubbles.has(o.g) ? 'hidden' : ''; }
+  for (const o of others.values()) { placeLabel(o.tag, o.g, o.lift || 2.8); o.tag.style.visibility = bubbles.has(o.g) ? 'hidden' : ''; }
   const now = performance.now() / 1000;
   for (const [g, b] of bubbles) {
     if (now > b.until) { b.el.style.opacity = 0; if (now > b.until + 0.5) { b.el.remove(); bubbles.delete(g); } continue; }
