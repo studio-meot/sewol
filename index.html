@@ -850,16 +850,37 @@ async function saveRemote() {
   updateClock();
   loadLedger();
   setInterval(() => { if (!ledger.hidden) loadLedger(); }, 30000);
-  const chan = sb.channel('riverbank', { config: { presence: { key: S.tabId } } });
-  chan.on('presence', { event: 'sync' }, () => {
-    const st = chan.presenceState(), list = [];
-    for (const key in st) {
-      const metas = st[key], m = metas[metas.length - 1] || {};
-      list.push({ peer: key, by: typeof m.uid === 'string' ? m.uid : null, sameTab: key === S.tabId, kind: 'viewer', presence: m });
-    }
-    syncPeers(list);
-  });
-  chan.subscribe(status => { if (status === 'SUBSCRIBED') { S.chan = chan; pushPresence(true); } });
+  // 탭이 오래 숨어 있거나 PC가 잠들면 연결이 끊긴다. 끊기면 토큰을 새로 받아 다시 앉는다.
+  let chan = null, joining = false;
+  async function joinRiver() {
+    if (joining) return;
+    joining = true;
+    try {
+      if (chan) { const old = chan; chan = null; S.chan = null; syncPeers([]); await sb.removeChannel(old).catch(() => {}); }
+      try { const { data: { session } } = await sb.auth.getSession(); if (session) sb.realtime.setAuth(session.access_token); } catch {}
+      const c = sb.channel('riverbank', { config: { presence: { key: S.tabId } } });
+      c.on('presence', { event: 'sync' }, () => {
+        if (c !== chan) return;
+        const st = c.presenceState(), list = [];
+        for (const key in st) {
+          const metas = st[key], m = metas[metas.length - 1] || {};
+          list.push({ peer: key, by: typeof m.uid === 'string' ? m.uid : null, sameTab: key === S.tabId, kind: 'viewer', presence: m });
+        }
+        syncPeers(list);
+      });
+      c.subscribe(status => {
+        if (c !== chan) return;
+        if (status === 'SUBSCRIBED') { S.chan = c; pushPresence(true); }
+        else { S.chan = null; }
+      });
+      chan = c;
+    } finally { joining = false; }
+  }
+  const checkRiver = () => { if (!chan || chan.state !== 'joined') joinRiver(); };
+  joinRiver();
+  setInterval(checkRiver, 15000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRiver(); });
+  window.addEventListener('online', checkRiver);
 })();
 
 /* ---------------- loop ---------------- */

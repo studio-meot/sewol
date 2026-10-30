@@ -175,27 +175,49 @@ async function refresh() {
 }
 refresh(); setInterval(refresh, 30000);
 
-// 강가 채널을 지켜보기만 한다 (track 하지 않으므로 인원수에 잡히지 않는다)
-const chan = sb.channel('riverbank', { config: { presence: { key: 'observer-' + Math.random().toString(36).slice(2), enabled: true } } });
-chan.on('presence', { event: 'sync' }, () => {
-  const st = chan.presenceState();
+// 강가 채널을 지켜보기만 한다 (track 하지 않으므로 인원수에 잡히지 않는다). 끊기면 다시 붙는다.
+let chan = null;
+function renderLive(c) {
+  const st = c.presenceState();
   const people = Object.values(st).map(m => m[m.length - 1] || {});
   $('liveN').textContent = people.length;
   const tb = $('liveRows'); tb.textContent = '';
   if (!people.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">아직 아무도 없어요.</td></tr>'; return; }
   people.sort((a, b) => (b.days || 0) - (a.days || 0)).forEach(p => {
     const tr = document.createElement('tr');
-    const st = document.createElement('td'); const s = document.createElement('span'); s.className = 'state' + (p.fishing ? ' on' : ''); s.textContent = p.fishing ? '● 낚는 중' : '○ 쉬는 중'; st.appendChild(s);
-    tr.append(cell(clean(p.name) || '강태공'), st, cell(p.fishing ? fmt(p.days || 0) : '–', 'num'));
+    const td = document.createElement('td'); const s = document.createElement('span'); s.className = 'state' + (p.fishing ? ' on' : ''); s.textContent = p.fishing ? '● 낚는 중' : '○ 쉬는 중'; td.appendChild(s);
+    tr.append(cell(clean(p.name) || '강태공'), td, cell(p.fishing ? fmt(p.days || 0) : '–', 'num'));
     tb.appendChild(tr);
   });
-});
-chan.subscribe(status => {
-  const on = status === 'SUBSCRIBED';
-  $('livePill').classList.toggle('on', on);
-  $('liveTxt').textContent = on ? '실시간 연결됨' : '다시 연결 중';
-  if (on && $('liveN').textContent === '–') $('liveN').textContent = '0';
-});
+}
+let joining = false;
+async function watchRiver() {
+  if (joining) return;
+  joining = true;
+  try { await watchRiverNow(); } finally { joining = false; }
+}
+async function watchRiverNow() {
+  if (chan) { const old = chan; chan = null; await sb.removeChannel(old).catch(() => {}); }
+  const c = sb.channel('riverbank', { config: { presence: { key: 'observer-' + Math.random().toString(36).slice(2), enabled: true } } });
+  c.on('presence', { event: 'sync' }, () => { if (c === chan) renderLive(c); });
+  c.subscribe(status => {
+    if (c !== chan) return;
+    const on = status === 'SUBSCRIBED';
+    $('livePill').classList.toggle('on', on);
+    $('liveTxt').textContent = on ? '실시간 연결됨' : '다시 연결 중';
+    if (on && $('liveN').textContent === '–') $('liveN').textContent = '0';
+  });
+  chan = c;
+}
+const checkRiver = () => {
+  if (chan && chan.state === 'joined') return;
+  $('livePill').classList.remove('on'); $('liveTxt').textContent = '다시 연결 중';
+  watchRiver();
+};
+watchRiver();
+setInterval(checkRiver, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRiver(); });
+window.addEventListener('online', checkRiver);
 })();
 </script>
 </body>
