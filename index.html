@@ -1938,7 +1938,8 @@ async function saveRemote() {
   }
   updateClock();
   loadLedger();
-  if (S.uid) sb.from('visits').upsert({ uid: S.uid, day: kstDay() }, { onConflict: 'uid,day', ignoreDuplicates: true }).then(() => {}, () => {});
+  // 찾아온 날 한 줄. 같은 날 두 번째부터는 '이미 있음'으로 거절되고 그걸로 충분하다 (on conflict 는 읽기 권한이 없어 막힌다)
+  if (S.uid) sb.from('visits').insert({ uid: S.uid, day: kstDay() }).then(() => {}, () => {});
   setInterval(() => { if (!ledger.hidden) loadLedger(); }, 30000);
   // 탭이 오래 숨어 있거나 PC가 잠들면 연결이 끊긴다. 끊기면 토큰을 새로 받아 다시 앉는다.
   let chan = null, joining = false;
