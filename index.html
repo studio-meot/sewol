@@ -467,6 +467,42 @@ const strandMat = lam('#a9c46a');
 }
 willow.position.set(-7.6, 0.25, 0.9);
 
+// 강가 곳곳의 나무: 버드나무, 소나무, 둥근 잎나무. 이쪽 둑은 자리와 짐승 길(이웃 자리 뒤) 뒤쪽에, 건너편 둑에도 줄지어 심는다
+const leafCrowns = [], bareCrowns = []; // 계절마다 잎 색이 바뀌는 것 / 겨울엔 잎이 지는 것
+const pineMat = lam('#3f5a3a'), barkMat = lam('#4e3b2c');
+function makeTree(kind, h) {
+  const g = new THREE.Group();
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.16 * h, 0.3 * h, (kind === 'pine' ? 2.2 : 3.4) * h, 6), barkMat);
+  trunk.position.y = (kind === 'pine' ? 1.1 : 1.7) * h; g.add(trunk);
+  if (kind === 'pine') {
+    [[1.7, 2.2, 2.0], [1.3, 1.9, 3.2], [0.85, 1.6, 4.3]].forEach(([r, ch, y]) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r * h, ch * h, 7), pineMat); c.position.y = y * h; g.add(c); });
+  } else if (kind === 'round') {
+    const m = lam('#5d8a3a'); leafCrowns.push(m);
+    [[0, 4.1, 0, 1.5], [0.9, 3.6, 0.3, 1.0], [-0.8, 3.7, -0.2, 1.05]].forEach(([x, y, z, r]) => { const c = new THREE.Mesh(new THREE.IcosahedronGeometry(r * h, 1), m); c.position.set(x * h, y * h, z * h); g.add(c); bareCrowns.push(c); });
+    [-0.6, 0.6].forEach(sx => { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.05 * h, 0.09 * h, 1.4 * h, 5), barkMat); b.position.set(sx * 0.5 * h, 3.4 * h, 0); b.rotation.z = -sx * 0.7; g.add(b); });
+  } else { // 버드나무
+    const m = lam('#5d8a3a'); leafCrowns.push(m);
+    const c = new THREE.Mesh(new THREE.IcosahedronGeometry(1.3 * h, 1), m); c.position.set(0.3 * h, 3.9 * h, 0); c.scale.set(1.4, 0.75, 1.2); g.add(c); bareCrowns.push(c);
+    for (let i = 0; i < 46; i++) {
+      const a = Math.random() * Math.PI * 2, rr = (0.5 + Math.random() * 1.5) * h, L = (1.3 + Math.random() * 1.8) * h;
+      const pivot = new THREE.Group(); pivot.position.set(0.3 * h + Math.cos(a) * rr, 3.7 * h + Math.random() * 0.3, Math.sin(a) * rr * 0.9);
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, L, 0.05), strandMat); b.position.y = -L / 2; pivot.add(b);
+      pivot.userData.ph = Math.random() * 6; g.add(pivot); strands.push(pivot);
+    }
+  }
+  return g;
+}
+[
+  // 이쪽 둑 [종류, x, z, 크기]
+  ['round', -15.5, 6.2, 1.0], ['pine', -21.5, 5.4, 1.1], ['willow', 14.5, 5.6, 1.0], ['pine', 19.8, 7.8, 1.25], ['round', 25.5, 5.2, 0.9],
+  ['willow', -27.5, 6.6, 1.1], ['pine', -33.5, 5.2, 1.0], ['round', 31.5, 7.2, 1.15], ['pine', 37.5, 5.6, 1.05], ['round', -39.5, 7.5, 1.0],
+  ['pine', -12.5, 10.5, 1.3], ['round', 11.5, 11.5, 1.2],
+  // 건너편 둑 (모래톱 위, 앉는 자리 뒤)
+  // 건너편에 앉으면 카메라가 이 둑 위에 오므로 가운데(|x|<10)는 비워 둔다
+  ['willow', -11, -45.6, 1.05], ['pine', 10.5, -46.8, 1.15], ['round', -16.5, -46.4, 1.0], ['pine', 15.5, -45.8, 1.0], ['round', 22, -48.2, 1.1],
+  ['pine', -23.5, -47.2, 1.2], ['willow', 29.5, -45.9, 1.0], ['round', -32.5, -49, 1.05], ['pine', 39, -47.5, 1.1], ['pine', -40, -46.5, 1.0]
+].forEach(([kind, x, z, h]) => { const t = makeTree(kind, h); t.position.set(x, z < -20 ? 0.6 : 0.25, z); t.rotation.y = Math.random() * 6; scene.add(t); });
+
 // particles by season
 const PN = 160;
 const pGeo = new THREE.BufferGeometry(); const pPos = new Float32Array(PN * 3); const pVel = [];
@@ -895,7 +931,7 @@ function makeRabbit(color) {
 }
 const FAUNA = [
   ...[0, 1].map(i => ({ kind: 'deer', g: makeDeer(lam(i ? '#86603f' : '#7a5a3e')), side: i ? 1 : -1, speed: 0.9 })),
-  ...[0, 1, 2].map(i => ({ kind: 'rabbit', g: makeRabbit(['#b9a487', '#8f8172', '#d8cdbb'][i]), side: i % 2 ? -1 : 1, speed: 1.7 }))
+  ...[0, 1, 2, 3].map(i => ({ kind: 'rabbit', g: makeRabbit(['#b9a487', '#8f8172', '#d8cdbb', '#a99682'][i]), side: i % 2 ? -1 : 1, speed: 1.7 }))
 ];
 FAUNA.forEach(a => {
   a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(1.05);
@@ -908,7 +944,7 @@ function updateFauna(dt) {
     let moving = false;
     if (a.idle > 0) {
       a.idle -= dt;
-      if (a.idle <= 0) { a.tx = a.side * rand(2.5, 12); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 이웃 자리 뒤 길가
+      if (a.idle <= 0) { if (Math.random() < 0.35) a.side = -a.side; a.tx = a.side * rand(2.5, 13); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 이웃 자리 뒤 길가, 가끔은 반대편으로 건너간다
     } else if (dist < 0.15) a.idle = a.kind === 'deer' ? rand(4, 10) : rand(2, 6);
     else {
       moving = true;
@@ -1192,6 +1228,7 @@ function applyLook() {
   const br = (w[0] * 0.42 + w[1] * 0.8 + w[2] * 1.1 + w[3]) * (1 - 0.22 * wK);
   paintSky(L); scene.fog.color.set(L.fog);
   ground.material.color.set(p.ground).multiplyScalar(br); strandMat.color.set(p.leaf).multiplyScalar(br); crown.material.color.set(p.leaf).multiplyScalar(br);
+  leafCrowns.forEach(m => m.color.set(p.leaf).multiplyScalar(br)); pineMat.color.set('#3f5a3a').multiplyScalar(br);
   water.material.color.set(L.water); water.material.specular.set(night > 0.5 ? '#6f7fa8' : '#ffcf8a');
   ridges.forEach((r, i) => { cA.set(RIDGE_C[i]).multiplyScalar(br); cB.set(L.fog); r.material.color.copy(cA.lerp(cB, s === 3 ? Math.max(0.1, 0.3 - i * 0.08) : 0.15 + 0.12 * w[2])); });
   hemi.intensity = 0.85 * br; fill.intensity = 0.25 + night * 0.2;
@@ -1204,7 +1241,7 @@ function applyLook() {
 }
 function applySeason(s) {
   if (s === curSeason) return; curSeason = s;
-  crown.visible = s !== 3; strands.forEach(st => st.scale.y = s === 3 ? 0.35 : 1);
+  crown.visible = s !== 3; bareCrowns.forEach(c => c.visible = s !== 3); strands.forEach(st => st.scale.y = s === 3 ? 0.35 : 1);
   const st = P_STYLE[s]; pMat.color.set(st.color); pMat.size = st.size; pMat.blending = st.blend; pMat.needsUpdate = true;
   applyLook();
   updateClock();
