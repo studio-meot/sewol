@@ -88,8 +88,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,184,103,0); } 50% { box-shadow: 0 0 0 7px rgba(240,184,103,.5); } }
 .tag.far { font-size: 10px; opacity: .85; }
 .tag.far .nm { padding: 1px 6px; }
-.tag.far .nm > span { display: none; }
-.tag.far .nm i { margin-left: 0; }
+.tag .nm i:empty { display: none; }
 .bubble { position: absolute; transform: translate(-50%, -100%); background: var(--paper); color: var(--ink); font-family: var(--font-display); font-size: 14px; padding: 7px 13px; border-radius: 14px; max-width: 220px; white-space: normal; text-align: center; text-wrap: balance; box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: opacity .4s; }
 .bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--paper); }
 
@@ -1258,11 +1257,11 @@ const NPCS = [
 NPCS.forEach(c => {
   c.g = makeAngler(c.robe); c.g.visible = false; scene.add(c.g);
   newSpot(c.g.userData); c.g.userData.castTarget = 1; c.g.userData.cast = 1;
-  c.days = 200 + Math.floor(Math.random() * 1600);
   c.tag = makeTag(); c.tag.querySelector('.nm > span').textContent = c.name; c.tag.hidden = true;
   c.on = false;
 });
-function placeNpcs() { const mine = S.bank === 'far' ? FAR_SEATS : NEAR_SEATS; NPCS.forEach(c => { const st = mine[c.seat]; seatOn(c.g, st.x, st.z, st.bank); }); }
+// 이웃 낚시꾼은 늘 반계 강가에 앉아 있다. 내가 건너가면 강 건너로 보인다
+function placeNpcs() { const away = S.bank === 'far'; NPCS.forEach(c => { const st = NEAR_SEATS[c.seat]; seatOn(c.g, st.x, st.z, 'near', away ? 1.5 : 1); c.tag.classList.toggle('far', away); }); }
 placeNpcs();
 let npcReady = false;
 function setNpcCount(n) {
@@ -1297,7 +1296,6 @@ const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 �
 let tutStep = store.get('tut', 0), tutT = 0, npcT = 40, greeted = tutStep < 8; // 튜토리얼 중인 사람에겐 '또 오셨구려' 인사를 하지 않는다
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
 function tickNpc(dt) {
-  for (const c of NPCS) if (c.on) { const d0 = Math.floor(c.days); c.days += dt * DAY; if (Math.floor(c.days) !== d0) c.tag.querySelector('i').textContent = fmtShort(c.days); }
   for (const c of NPCS) if (c.on && c.reelAt && performance.now() > c.reelAt) { c.reelAt = 0; newSpot(c.g.userData); c.g.userData.castTarget = 1; }
   const on = npcOn();
   if (!on.length) return;
@@ -1341,7 +1339,6 @@ function npcReact(kind) {
   else if (kind === 'poem' && Math.random() < 0.6) setTimeout(() => npcSay(c, NPC_REPLY_POEM[Math.floor(Math.random() * NPC_REPLY_POEM.length)], 4), 2600);
 }
 setNpcCount(NPCS.length);
-NPCS.forEach(c => { c.tag.querySelector('i').textContent = fmtShort(c.days); });
 
 // 연타하면 옆자리에서 한마디 한다
 const HURRY = ['허허, 뭐가 그리 급하시오', '강물도 그리 서두르진 않소', '세월은 연타한다고 빨리 낚이지 않소', '찌보다 손이 더 바쁘구려', '천천히 하시오. 바늘이 곧아도 손은 쉬어야지', '그러다 물고기가 놀라 달아나겠소'];
@@ -1388,8 +1385,7 @@ function syncPeers(list) {
   const keep = new Set();
   const nNpc = Math.max(0, NPCS.length - rest.length);
   // 이웃 낚시꾼이 앉은 자리를 빼고, 각자 고른 둑부터 채운다
-  const mine = S.bank === 'far' ? FAR_SEATS : NEAR_SEATS;
-  const taken = new Set(NPCS.slice(0, nNpc).map(c => mine[c.seat]));
+  const taken = new Set(NPCS.slice(0, nNpc).map(c => NEAR_SEATS[c.seat]));
   const pool = { near: NEAR_SEATS.filter(x => !taken.has(x)), far: FAR_SEATS.filter(x => !taken.has(x)) };
   const assign = new Map();
   rest.forEach(p => { const pref = (p.presence || {}).bank === 'far' ? 'far' : 'near'; const st = pool[pref].shift() || pool[pref === 'far' ? 'near' : 'far'].shift(); if (st) assign.set(p.peer, st); });
@@ -1415,9 +1411,8 @@ function syncPeers(list) {
     o.by = p.by;
     const nm = cleanName(pr.name);
     if (o.by && nm) names.set(o.by, nm);
-    const days = Number.isFinite(pr.days) ? pr.days : 0;
     o.tag.querySelector('.nm > span').textContent = nm || nameFor(o.by, i);
-    o.tag.querySelector('i').textContent = pr.fishing ? fmtShort(days) : '쉬는 중';
+    o.tag.querySelector('i').textContent = ''; // 남이 낚은 세월은 보여 주지 않는다
     const em = pr.emote;
     if (em && typeof em === 'object' && em.n !== (o.lastEmote && o.lastEmote.n)) {
       const first = o.lastEmote === null;
