@@ -847,8 +847,92 @@ function updateShark(dt) {
   if (r.x * r.dir > 48) { shark.visible = false; sharkRun = null; }
 }
 
+// 양옆 길가를 어슬렁거리는 노루와 토끼. 이쪽 둑 기준 좌표로 다니고, 내가 건너가면 건너편 길가로 옮겨 보인다
+function makeRabbit(color) {
+  const g = new THREE.Group(), m = lam(color);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), m); body.scale.set(1.3, 0.95, 0.9); body.position.y = 0.2; g.add(body);
+  const head = new THREE.Group(); head.position.set(0.24, 0.36, 0); g.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), m));
+  const ears = [0.05, -0.05].map(z => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.24, 0.07), m); e.position.set(-0.03, 0.18, z); head.add(e); return e; });
+  const tail = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), lam('#f3ede2')); tail.position.set(-0.26, 0.24, 0); g.add(tail);
+  g.userData = { head, ears }; scene.add(g); return g;
+}
+const FAUNA = [
+  ...[0, 1].map(i => ({ kind: 'deer', g: makeDeer(lam(i ? '#86603f' : '#7a5a3e')), side: i ? 1 : -1, speed: 0.9 })),
+  ...[0, 1, 2].map(i => ({ kind: 'rabbit', g: makeRabbit(['#b9a487', '#8f8172', '#d8cdbb'][i]), side: i % 2 ? -1 : 1, speed: 1.7 }))
+];
+FAUNA.forEach(a => {
+  a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(1.05);
+  a.x = a.side * rand(2.5, 11); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(0, 4); a.t = Math.random() * 10; a.heading = 0;
+});
+function updateFauna(dt) {
+  for (const a of FAUNA) {
+    a.t += dt;
+    const u = a.g.userData, dx = a.tx - a.x, dz = a.tz - a.z, dist = Math.hypot(dx, dz);
+    let moving = false;
+    if (a.idle > 0) {
+      a.idle -= dt;
+      if (a.idle <= 0) { a.tx = a.side * rand(2.5, 12); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 이웃 자리 뒤 길가
+    } else if (dist < 0.15) a.idle = a.kind === 'deer' ? rand(4, 10) : rand(2, 6);
+    else {
+      moving = true;
+      const step = Math.min(dist, a.speed * dt * (a.kind === 'rabbit' ? (Math.sin(a.t * 9) > 0 ? 1.8 : 0.2) : 1));
+      a.x += dx / dist * step; a.z += dz / dist * step;
+      a.heading = Math.atan2(-dz, dx);
+    }
+    let y = 0;
+    if (a.kind === 'rabbit') {
+      y = moving ? Math.max(0, Math.sin(a.t * 9)) * 0.22 : 0;
+      u.ears.forEach((e, i) => { e.rotation.x = !moving && Math.sin(a.t * 3 + i) > 0.92 ? 0.5 * (i ? -1 : 1) : 0; });
+      u.head.rotation.z = moving ? 0 : Math.sin(a.t * 1.7) * 0.15;
+    } else {
+      const want = !moving && a.idle > 1 ? -1.3 : 0; // 서 있으면 풀을 뜯는다
+      u.neck.rotation.z += (want - u.neck.rotation.z) * Math.min(1, dt * 2);
+      u.legs.forEach((l, i) => { l.rotation.z = moving ? Math.sin(a.t * 6 + (i % 2) * Math.PI + (i > 1 ? Math.PI / 2 : 0)) * 0.35 : l.rotation.z * 0.9; });
+      u.ears.forEach((e, i) => { e.rotation.y = Math.sin(a.t * 7 + i) > 0.96 ? 0.5 : 0; });
+    }
+    if (S.bank === 'far') { a.g.position.set(-a.x, 0.6 + y, -42.3 - (a.z - 1.1)); a.g.rotation.y = a.heading + Math.PI; }
+    else { a.g.position.set(a.x, 0.25 + y, a.z); a.g.rotation.y = a.heading; }
+  }
+}
+
+// 가끔 거북이가 물 위로 등을 내밀고 떠다니다 잠긴다
+const turtle = new THREE.Group();
+{
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(0.55, 10, 6, 0, Math.PI * 2, 0, Math.PI / 2), lam('#4d5a3a')); shell.scale.set(1.15, 0.5, 0.95); turtle.add(shell);
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(0.58, 0.06, 4, 14), lam('#3e4a30')); rim.rotation.x = Math.PI / 2; rim.scale.set(1.15, 0.95, 1); turtle.add(rim);
+  [[-0.2, 0.2], [0.18, 0.12], [0.02, -0.18]].forEach(([x, z]) => { const p = new THREE.Mesh(new THREE.CircleGeometry(0.15, 6), lam('#5f6c45')); p.rotation.x = -Math.PI / 2; p.position.set(x, 0.28, z); turtle.add(p); });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), lam('#6b7a4a')); head.scale.set(1.3, 0.9, 0.9); head.position.set(0.78, 0.02, 0); turtle.add(head);
+  turtle.userData.head = head;
+}
+turtle.visible = false; scene.add(turtle);
+const TURTLE_SAY = ['저 거북이도 세월 낚는 중이오', '거북이는 나보다 오래 앉아 있었을 거요', '허허, 백 년 묵은 벗이 왔구려'];
+let turtleRun = null, nextTurtle = new URLSearchParams(location.search).has('turtle') ? 3 : rand(40, 90); // ?turtle=1 이면 곧바로
+function updateTurtle(dt) {
+  if (!turtleRun) {
+    nextTurtle -= dt;
+    if (nextTurtle <= 0) {
+      nextTurtle = rand(70, 160);
+      turtleRun = { t: 0, dur: rand(14, 22), x: me.position.x + rand(-14, 14), z: me.position.z - FLIP() * rand(4.5, 13), dir: Math.random() * Math.PI * 2, rip: 0, said: false };
+      turtle.visible = true;
+    }
+    return;
+  }
+  const r = turtleRun; r.t += dt;
+  const up = Math.min(1, r.t / 1.8, (r.dur - r.t) / 1.8);
+  r.x += Math.cos(r.dir) * 0.18 * dt; r.z -= Math.sin(r.dir) * 0.18 * dt; r.dir += Math.sin(r.t * 0.3) * 0.08 * dt;
+  turtle.position.set(r.x, -0.32 + 0.34 * up + Math.sin(r.t * 1.4) * 0.02, r.z); turtle.rotation.y = r.dir;
+  turtle.userData.head.position.x = 0.62 + 0.16 * Math.max(0, Math.sin(r.t * 0.5)); // 고개를 내밀었다 넣었다
+  r.rip -= dt; if (r.rip <= 0 && up > 0.3) { r.rip = rand(2.5, 4.5); ripple({ x: r.x, z: r.z }, 0.45); }
+  if (!r.said && r.t > 5 && Math.random() < 0.4) { const c = npcPick(); if (c) npcSay(c, TURTLE_SAY[Math.floor(Math.random() * TURTLE_SAY.length)], 5); }
+  if (r.t > 5) r.said = true;
+  if (r.t >= r.dur) { turtle.visible = false; turtleRun = null; }
+}
+
 function updateWild(dt) {
   updateDeer(dt);
+  updateFauna(dt);
+  updateTurtle(dt);
   updateTea(dt);
   updateShark(dt);
   updateVisit(dt);
@@ -991,16 +1075,14 @@ const stars = (() => {
   const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#fff8ea', size: 1.8, sizeAttenuation: false, fog: false, transparent: true, opacity: 0, depthWrite: false }));
   scene.add(p); return p;
 })();
-// 비와 눈: 한국 시간 25분 단위로 정해져서 모두가 같은 때 비를 맞는다. 겨울인 사람에겐 눈으로 내린다. ?weather=rain|snow|clear
 const WEATHER_Q = new URLSearchParams(location.search).get('weather');
+// 강가는 늘 평화롭다: 비와 함박눈은 내리지 않는다 (주소에 ?weather=rain|snow 를 붙일 때만 미리 보기로)
 function precipNow() {
   if (WEATHER_Q) return WEATHER_Q !== 'clear';
-  const block = Math.floor((Date.now() / 60000 + 540) / 25);
-  let h = Math.imul(block ^ 0x5bd1e995, 2654435761) >>> 0; h ^= h >>> 15; h = Math.imul(h, 2246822519) >>> 0; h ^= h >>> 13;
-  return h % 100 < 16;
+  return false;
 }
 let weather = 'clear', wTarget = 0, wK = 0, weatherTimer = 99, weatherLook = 0, weatherFirst = true;
-const RN = 700, rainPos = new Float32Array(RN * 6), rainP = new Float32Array(RN * 3);
+const RN = 380, rainPos = new Float32Array(RN * 6), rainP = new Float32Array(RN * 3);
 const rainGeo = new THREE.BufferGeometry(); rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
 const rain = new THREE.LineSegments(rainGeo, new THREE.LineBasicMaterial({ color: '#c9d3dc', transparent: true, opacity: 0, depthWrite: false }));
 rain.frustumCulled = false; scene.add(rain);
@@ -1033,7 +1115,7 @@ function updateWeather(dt) {
   }
   sfx.setRain(weather === 'rain' ? wK : 0);
   const isRain = weather === 'rain', isSnow = weather === 'snow';
-  rain.material.opacity = isRain ? 0.5 * wK : 0; snow.material.opacity = isSnow ? 0.95 * wK : 0;
+  rain.material.opacity = isRain ? 0.32 * wK : 0; snow.material.opacity = isSnow ? 0.95 * wK : 0;
   if (isRain && wK > 0) {
     for (let i = 0; i < RN; i++) {
       const o = i * 3; rainP[o + 1] -= 17 * dt; rainP[o] -= 1.2 * dt;
@@ -1041,7 +1123,7 @@ function updateWeather(dt) {
       rainPos.set([rainP[o], rainP[o + 1], rainP[o + 2], rainP[o] + 0.05, rainP[o + 1] + 0.5, rainP[o + 2]], i * 6);
     }
     rainGeo.attributes.position.needsUpdate = true;
-    if (Math.random() < dt * 14 * wK) ripple({ x: me.position.x + (Math.random() - 0.5) * 36, z: me.position.z - FLIP() * (2.6 + Math.random() * 16) }, 0.28);
+    if (Math.random() < dt * 6 * wK) ripple({ x: me.position.x + (Math.random() - 0.5) * 36, z: me.position.z - FLIP() * (2.6 + Math.random() * 16) }, 0.28);
   }
   if (isSnow && wK > 0) {
     for (let i = 0; i < SN; i++) {
@@ -1068,7 +1150,7 @@ function applyLook() {
   }
   if (wK > 0) {
     const G = { top: '#4a525e', mid: '#7a8189', low: '#959ba1', fog: '#868c93', water: '#3c4b52' }, bb = 0.45 + 0.55 * (1 - w[0]);
-    for (const key in G) L[key] = '#' + cA.set(L[key]).lerp(cB.set(G[key]).multiplyScalar(bb), 0.6 * wK).getHexString();
+    for (const key in G) L[key] = '#' + cA.set(L[key]).lerp(cB.set(G[key]).multiplyScalar(bb), 0.42 * wK).getHexString();
   }
   night = w[0];
   const br = (w[0] * 0.42 + w[1] * 0.8 + w[2] * 1.1 + w[3]) * (1 - 0.22 * wK);
@@ -1352,7 +1434,7 @@ const sfx = (() => {
     gong() { [110, 220.5, 331, 523].forEach((f, i) => tone(f, f * 0.995, 5 - i, 0.25 / (i + 1))); },
     setRain(k) {
       if (!rainGain || Math.abs(k - rainLvl) < 0.02) return;
-      rainLvl = k; rainGain.gain.setTargetAtTime(k * 0.32, ctx.currentTime, 0.6);
+      rainLvl = k; rainGain.gain.setTargetAtTime(k * 0.18, ctx.currentTime, 0.6);
     },
     call(kind, pan, vol) { if (on && CALLS[kind]) CALLS[kind](pan, vol); },
     splash(vol, pan) {
