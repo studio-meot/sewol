@@ -1279,7 +1279,7 @@ function setNpcCount(n) {
 }
 const npcOn = () => NPCS.filter(c => c.on);
 const npcPick = () => { const l = npcOn(); return l[Math.floor(Math.random() * l.length)]; };
-const npcSay = (c, text, sec = 6) => { if (c && c.on) say(c.g, text, sec); };
+const npcSay = (c, text, sec = 6, force) => { if (c && c.on && (force || !(c.hush > performance.now()))) say(c.g, text, sec); };
 const npcSeat = () => NPCS.slice(0, npcOn().length).map(c => c.seat);
 function pulse(id) { const b = $(id); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); setTimeout(() => b.classList.remove('pulse'), 9000); }
 function npcTea(c, hint) {
@@ -1352,7 +1352,7 @@ function tapped() {
   if (taps.length < 6 || now < hurryUntil) return;
   hurryUntil = now + 9000; taps = [];
   const line = HURRY[Math.floor(Math.random() * HURRY.length)], c = npcPick();
-  if (c) npcSay(c, line, 4); else toast(line);
+  if (c) { c.hush = now + 4500; npcSay(c, line, 4, true); } else toast(line);
 }
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('button')) tapped(); }, true);
 
