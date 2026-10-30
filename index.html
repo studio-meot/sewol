@@ -98,6 +98,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .sheet header button { font-size: 12px; color: var(--paper-dim); }
 .sum { padding: 12px 18px; font-size: 13px; color: var(--paper-dim); display: grid; gap: 4px; }
 .sum b { color: var(--paper); font-family: var(--font-display); font-size: 16px; font-variant-numeric: tabular-nums; }
+.ltabs { display: flex; gap: 4px; padding: 0 14px 6px; }
+.ltabs button { flex: 1; padding: 7px 0; border-radius: 999px; font-size: 13px; color: var(--paper-dim); border: 1px solid var(--glass-line); }
+.ltabs button.on { background: rgba(243,230,204,.14); color: var(--paper); }
 .sheet ol { list-style: none; margin: 0; padding: 4px 10px 14px; overflow: auto; }
 .sheet li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: center; padding: 8px; border-radius: 10px; font-size: 13.5px; }
 .sheet li.me { background: rgba(217,88,59,.18); }
@@ -173,8 +176,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   <div class="sum">
     <div>내가 장부에 적은 세월 <b id="myTotal">0일</b></div>
     <div>강가 모두가 적은 세월 <b id="allTotal">—</b></div>
-    <div style="margin-top:6px">순위는 한자리에서 가장 오래 앉아 있던 세월 순이에요.</div>
+    <div style="margin-top:6px">순위는 한자리에서 가장 오래 앉아 있던 세월 순이에요. 이번 주 장부는 월요일마다 새로 펼쳐요.</div>
   </div>
+  <div class="ltabs" role="tablist"><button id="tabWeek" role="tab" aria-selected="true" class="on">이번 주</button><button id="tabAll" role="tab" aria-selected="false">모든 세월</button></div>
   <ol id="ledgerList"></ol>
   <div class="empty" id="ledgerEmpty">아직 장부에 오른 사람이 없어요. 세월을 낚은 뒤 ‘장부에 적기’를 누르면 첫 줄에 오릅니다.</div>
 </aside>
@@ -253,16 +257,53 @@ const REEL = [
   '물고기야, 너는 가던 길 가거라'
 ];
 
+const kstNow = () => new Date(Date.now() + 9 * 3600e3);
+const kstDay = () => kstNow().toISOString().slice(0, 10);
+const weekKey = () => { const d = kstNow(); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() + 6) % 7); return d.toISOString().slice(0, 10); }; // 그 주 월요일
+// 이십사절기 (해마다 하루쯤 달라질 수 있다): [월, 일, 이름, 한자, 알림, 이웃의 한마디]
+const TERMS = [
+  [1, 5, '소한', '小寒', '작은 추위가 오는 날이에요', '소한 추위가 대한보다 맵다더니 정말이구려'],
+  [1, 20, '대한', '大寒', '가장 큰 추위라는 날이에요', '대한이 지나면 봄이 머지않소'],
+  [2, 4, '입춘', '立春', '봄이 문턱을 넘는 날이에요', '입춘이오. 바늘 끝에 봄이 걸리겠구려'],
+  [2, 19, '우수', '雨水', '눈이 비로 바뀌는 날이에요', '얼음이 풀리면 강 소리도 달라지지'],
+  [3, 5, '경칩', '驚蟄', '개구리가 깨어나는 날이에요', '개구리도 깼는데 고기는 여전히 안 무는구려'],
+  [3, 20, '춘분', '春分', '낮과 밤의 길이가 같은 날이에요', '오늘은 낮도 밤도 공평하오'],
+  [4, 5, '청명', '淸明', '하늘이 맑아지는 날이에요', '청명이라 물빛이 좋소'],
+  [4, 20, '곡우', '穀雨', '곡식을 깨우는 비가 오는 날이에요', '곡우엔 비가 와야 풍년이라오'],
+  [5, 5, '입하', '立夏', '여름이 시작되는 날이에요', '입하라. 버들잎이 짙어지는구려'],
+  [5, 21, '소만', '小滿', '만물이 차오르는 날이에요', '세월도 조금씩 차오르는 중이오'],
+  [6, 6, '망종', '芒種', '씨를 뿌리는 날이에요', '다들 씨 뿌리는데 우리는 세월을 뿌리는구려'],
+  [6, 21, '하지', '夏至', '낮이 가장 긴 날이에요', '해가 길어 세월이 천천히 가오'],
+  [7, 7, '소서', '小暑', '작은 더위가 오는 날이에요', '삿갓 밑이 제일 시원하오'],
+  [7, 23, '대서', '大暑', '가장 더운 날이에요', '이 더위엔 고기도 그늘에서 쉬오'],
+  [8, 7, '입추', '立秋', '가을이 시작되는 날이에요', '바람 끝이 달라졌구려'],
+  [8, 23, '처서', '處暑', '더위가 물러나는 날이에요', '처서 지나면 모기 입도 비뚤어진다오'],
+  [9, 7, '백로', '白露', '풀잎에 이슬이 맺히는 날이에요', '아침 이슬이 찌에도 맺혔소'],
+  [9, 23, '추분', '秋分', '다시 낮과 밤이 같아지는 날이에요', '이제부터 밤이 길어지오. 세월 낚기 좋은 때지'],
+  [10, 8, '한로', '寒露', '찬 이슬이 내리는 날이에요', '강물이 차가워졌소'],
+  [10, 23, '상강', '霜降', '서리가 내리는 날이에요', '서리가 내리면 단풍도 끝물이오'],
+  [11, 7, '입동', '立冬', '겨울이 문턱을 넘는 날이에요', '입동이오. 차 한잔이 더 따뜻한 때지'],
+  [11, 22, '소설', '小雪', '첫눈이 올 법한 날이에요', '소설이라. 삿갓에 첫눈이 앉겠구려'],
+  [12, 7, '대설', '大雪', '눈이 많이 내리는 날이에요', '눈이 쌓이듯 세월도 쌓이오'],
+  [12, 22, '동지', '冬至', '밤이 가장 긴 날이에요', '밤이 가장 긴 날. 세월 낚기엔 그만이오']
+];
+const TERM = (() => { const d = kstNow(); return TERMS.find(x => x[0] === d.getUTCMonth() + 1 && x[1] === d.getUTCDate()) || null; })();
 const store = {
   get(k, d) { try { const v = localStorage.getItem('sewol.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem('sewol.' + k, JSON.stringify(v)); } catch {} }
 };
 
+// 한국 날짜로 하루에 한 번, 몇 번째 찾아왔는지 센다
+{
+  const st = { get: k => { try { return JSON.parse(localStorage.getItem('sewol.' + k)); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem('sewol.' + k, JSON.stringify(v)); } catch {} } };
+  if (st.get('lastDay') !== kstDay()) { st.set('visits', (st.get('visits') || 0) + 1); st.set('lastDay', kstDay()); }
+}
 const S = {
   fishing: false,
   session: store.get('session', 0), // 이번에 앉아 있는 세월(일)
   total: store.get('total', 0),
   best: store.get('best', 0),
+  week: store.get('week', ''), weekBest: store.get('weekBest', 0),
   kingSeen: false,
   nextAmbient: 18,
   shown: new Set(),
@@ -427,20 +468,33 @@ function makeAngler(robe, opts = {}) {
   const headY = seated ? 1.26 : 1.84;
   const head = new THREE.Group(); head.position.y = headY; body.add(head);
   head.add(new THREE.Mesh(new THREE.SphereGeometry(0.43, 18, 14), new THREE.MeshLambertMaterial({ color: SKIN })));
-  const beard = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.72, 10), lam(BEARD)); beard.rotation.x = Math.PI + 0.25; beard.position.set(0, -0.42, -0.26); head.add(beard);
+  const beard = new THREE.Mesh(new THREE.ConeGeometry(0.24, 0.72, 10), lam(BEARD)); beard.rotation.x = Math.PI + 0.25; beard.position.set(0, -0.42, -0.26); if (!opts.young) head.add(beard);
   for (const s of [-1, 1]) {
     const eye = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), new THREE.MeshBasicMaterial({ color: '#2a2118' })); eye.position.set(s * 0.14, 0.04, -0.4); head.add(eye);
-    const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.13, 2, 6), lam(BEARD)); brow.rotation.z = Math.PI / 2 - s * 0.3; brow.position.set(s * 0.15, 0.13, -0.38); head.add(brow);
-    const mus = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.2, 2, 6), lam(BEARD)); mus.rotation.z = Math.PI / 2 - s * 0.5; mus.position.set(s * 0.11, -0.12, -0.4); head.add(mus);
+    const brow = new THREE.Mesh(new THREE.CapsuleGeometry(0.035, 0.13, 2, 6), lam(BEARD)); brow.rotation.z = Math.PI / 2 - s * 0.3; brow.position.set(s * 0.15, 0.13, -0.38); if (!opts.young) head.add(brow);
+    const mus = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.2, 2, 6), lam(BEARD)); mus.rotation.z = Math.PI / 2 - s * 0.5; mus.position.set(s * 0.11, -0.12, -0.4); if (!opts.young) head.add(mus);
   }
   const cheek = new THREE.MeshBasicMaterial({ color: '#f29c86', transparent: true, opacity: 0.55 });
   for (const s of [-1, 1]) { const c = new THREE.Mesh(new THREE.CircleGeometry(0.06, 10), cheek); c.position.set(s * 0.24, -0.04, -0.36); c.rotation.y = Math.PI + s * 0.6; head.add(c); }
   if (opts.crown) {
     const cr = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.26, 0.5), lam('#2a2420')); cr.position.y = 0.42; head.add(cr);
     const pl = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.04, 0.8), lam('#2a2420')); pl.position.y = 0.57; head.add(pl);
+  } else if (opts.young) {
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.55), lam('#2a2118')); hair.position.y = 0.03; head.add(hair);
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), lam('#2a2118')); knot.position.set(0, 0.46, 0.05); head.add(knot);
   } else {
     const hat = new THREE.Mesh(new THREE.ConeGeometry(0.82, 0.38, 22), lam(STRAW)); hat.position.y = 0.42; head.add(hat);
     const band = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.03, 4, 18), lam('#7c5a32')); band.rotation.x = Math.PI / 2; band.position.y = 0.34; head.add(band);
+  }
+  // 오래 앉을수록 드러나는 것들: 삿갓 위 물새, 삿갓에 쌓인 눈, 바위의 이끼
+  let perch = null, snowCap = null, moss = null;
+  if (seated && !opts.crown) {
+    perch = makePerchBird(); perch.position.set(0.05, 0.66, 0.02); perch.visible = false; head.add(perch);
+    snowCap = new THREE.Mesh(new THREE.ConeGeometry(0.64, 0.29, 22), lam('#f4f6fa')); snowCap.position.y = 0.49; snowCap.visible = false; head.add(snowCap);
+    moss = new THREE.Group(); moss.visible = false; g.add(moss);
+    [[0.78, 0.36, 0.25], [-0.72, 0.34, 0.4], [0.3, 0.4, 0.7], [-0.4, 0.3, -0.62], [0.62, 0.3, -0.45]].forEach(([x, y, z], i) => {
+      const p = new THREE.Mesh(new THREE.SphereGeometry(0.2 + (i % 2) * 0.06, 7, 5), lam(i % 2 ? '#5f7a3a' : '#6f8a40')); p.scale.y = 0.32; p.position.set(x, y, z); moss.add(p);
+    });
   }
   // arms
   const arms = new THREE.Group(); arms.position.y = seated ? 0.72 : 1.3; body.add(arms);
@@ -463,8 +517,25 @@ function makeAngler(robe, opts = {}) {
   const fTop = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshLambertMaterial({ color: '#e0412c' })); fTop.position.y = 0.06;
   const fBot = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), new THREE.MeshLambertMaterial({ color: '#fbf6ea' })); fBot.position.y = -0.02;
   float.add(fTop, fBot); scene.add(float);
-  g.userData = { root, body, head, arms, armL, armR, rodPivot, tip, line, float, cast: 0, castTarget: 0, bow: 0, bowT: 0, ph: Math.random() * 6, floatOff: new THREE.Vector3(1.9, 0, -3.6), armBase: armR.position.clone(), waveT: 0 };
+  g.userData = { root, body, head, arms, armL, armR, rodPivot, tip, line, float, cast: 0, castTarget: 0, bow: 0, bowT: 0, ph: Math.random() * 6, floatOff: new THREE.Vector3(1.9, 0, -3.6), armBase: armR.position.clone(), waveT: 0, beard, perch, snowCap, moss };
   return g;
+}
+function makePerchBird() {
+  const g = new THREE.Group(), m = lam('#f3efe6');
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), m); b.scale.set(1.5, 1, 1); g.add(b);
+  const h = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), m); h.position.set(0.14, 0.09, 0); g.add(h);
+  const k = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 4), lam('#e0a43a')); k.rotation.z = -Math.PI / 2; k.position.set(0.25, 0.08, 0); g.add(k);
+  const tl = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 4), m); tl.rotation.z = Math.PI / 2 + 0.4; tl.position.set(-0.19, 0.03, 0); g.add(tl);
+  return g;
+}
+// 앉아 있던 세월만큼 모습이 변한다: 수염이 길어지고, 한 달이면 물새가 앉고, 일 년이면 바위에 이끼가 낀다
+function setAge(a, days) {
+  const u = a.userData; if (!u.perch) return;
+  const L = 1 + Math.min(1.7, days / 1000), w = 1 + Math.min(0.45, days / 2500);
+  u.beard.scale.set(w, L, w); u.beard.position.set(0, -0.42 - (L - 1) * 0.34, -0.26 - (L - 1) * 0.09);
+  u.perch.visible = days >= 30;
+  u.moss.visible = days >= 360;
+  u.snowCap.visible = curSeason === 3 && days >= 20;
 }
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 function updateAngler(a, t, dt) {
@@ -488,6 +559,7 @@ function updateAngler(a, t, dt) {
   const tipW = u.tip.getWorldPosition(tmpV);
   const visible = u.cast > 0.6;
   u.line.visible = u.float.visible = visible;
+  if (u.perch && u.perch.visible) u.perch.rotation.y = Math.sin(t * 0.31 + u.ph) > 0.85 ? 0.9 : Math.sin(t * 0.23 + u.ph) < -0.9 ? -0.7 : 0;
   if (!visible) return;
   const fp = tmpV2.copy(u.floatOff).applyMatrix4(a.matrixWorld);
   const bob = u.nibble > 0 ? -0.08 * Math.sin(u.nibble * 14) : 0;
@@ -694,6 +766,57 @@ function updateTea(dt) {
   }
 }
 
+// 오래 앉아 있으면 손님이 찾아온다: 일 년이면 나무꾼, 오 년이면 동네 아이들. ?visit=wood|kids 로 바로 볼 수 있다
+const VISITS = {
+  wood: { who: [{ robe: '#7a5a3e', wood: true }], lines: [[0, '허허, 일 년째 그 자리시구려'], [0, '나무하러 오가며 늘 보았소'], [0, '고기 대신 땔감이라도 좀 드릴까?']], reply: '허허, 마음만 받겠소' },
+  kids: { who: [{ robe: '#c0583a', young: true }, { robe: '#3f6e8a', young: true }], lines: [[0, '할아버지, 뭐 잡아요?'], [1, '바늘이 곧은데요?'], [0, '세월이요? 세월은 어떻게 생겼어요?'], [1, '우리도 내일 또 올게요!']], reply: '허허, 너희만 할 때 낚기 시작했지' }
+};
+let visit = null;
+function makeWalker(w) {
+  const g = makeAngler(w.robe, { seated: false, noRod: true, young: w.young });
+  g.userData.line.visible = g.userData.float.visible = false;
+  if (w.wood) { // 지게와 장작
+    const m = lam('#6b4a2c'), fr = new THREE.Group();
+    [-0.2, 0.2].forEach(x => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.4, 0.07), m); p.position.set(x, 1.15, 0.42); fr.add(p); });
+    [1.5, 1.72].forEach(y => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.85, 6), lam('#8a6a44')); l.rotation.z = Math.PI / 2; l.position.set(0, y, 0.52); fr.add(l); });
+    g.userData.body.add(fr);
+  }
+  if (w.young) g.scale.setScalar(0.62);
+  scene.add(g); return g;
+}
+function startVisit(kind) {
+  const v = VISITS[kind]; if (!v || visit) return;
+  visit = { v, phase: 'in', t: 0, step: 0, m: v.who.map((w, i) => ({ g: makeWalker(w), x: -18 - i * 1.4, z: 2.7 + i * 0.55, stopX: -2.4 - i * 1.3 })) };
+}
+function updateVisit(dt) {
+  if (!visit) return;
+  const V = visit; V.t += dt;
+  let arrived = true;
+  for (const m of V.m) {
+    let walking = false;
+    if (V.phase === 'in' && m.x < m.stopX) { m.x = Math.min(m.stopX, m.x + 1.7 * dt); walking = true; }
+    if (V.phase === 'out') { m.x += 1.9 * dt; walking = true; }
+    if (m.x < m.stopX) arrived = false;
+    const bob = walking ? Math.abs(Math.sin(V.t * 6 + m.z)) * 0.06 : 0;
+    const face = walking ? -Math.PI / 2 : Math.atan2(m.x, -(1.1 - m.z));
+    if (S.bank === 'far') { m.g.position.set(-m.x, 0.6 + bob, -42.3 - (m.z - 1.1)); m.g.rotation.y = face + Math.PI; }
+    else { m.g.position.set(m.x, 0.25 + bob, m.z); m.g.rotation.y = face; }
+    updateAngler(m.g, t, dt);
+  }
+  if (V.phase === 'in' && arrived) { V.phase = 'stay'; V.t = 2; }
+  else if (V.phase === 'stay' && V.t > 3.3) {
+    V.t = 0;
+    if (V.step < V.v.lines.length) { const [who, text] = V.v.lines[V.step++]; say(V.m[who].g, text, 4); if (V.step === 1) V.m[0].g.userData.bowT = 2.4; }
+    else if (V.step === V.v.lines.length) { V.step++; say(me, V.v.reply, 4); }
+    else { V.phase = 'out'; V.m.forEach(m => m.g.userData.waveT = 2.8); }
+  } else if (V.phase === 'out' && V.m.every(m => m.x > 22)) {
+    V.m.forEach(m => { scene.remove(m.g, m.g.userData.line, m.g.userData.float); const b = bubbles.get(m.g); if (b) { b.el.remove(); bubbles.delete(m.g); } });
+    visit = null;
+  }
+}
+const VISIT_Q = new URLSearchParams(location.search).get('visit');
+if (VISIT_Q) setTimeout(() => startVisit(VISIT_Q), 3000);
+
 // 아주 가끔, 얼척없게도 부캉이(상어)가 강을 가로지른다. ?shark=1 이면 곧바로 나온다
 const SHARK_Q = new URLSearchParams(location.search).has('shark');
 const sharkMat = new THREE.MeshLambertMaterial({ color: '#3d4650', flatShading: true });
@@ -727,6 +850,7 @@ function updateWild(dt) {
   updateDeer(dt);
   updateTea(dt);
   updateShark(dt);
+  updateVisit(dt);
   nextFlock -= dt;
   if (nextFlock <= 0) { nextFlock = rand(20, 45); if (flocks.length < 2) spawnFlock(); }
   for (let i = flocks.length - 1; i >= 0; i--) {
@@ -976,7 +1100,7 @@ function toast(msg, ms = 4200) {
 function updateClock() {
   $('clockVal').textContent = fmt(S.session);
   $('clock').classList.toggle('idle', !S.fishing);
-  const season = SEASONS[seasonOf(S.total + S.session)] + (curTod >= 0 ? ' ' + TOD_NAMES[curTod] : '') + (wTarget ? (weather === 'snow' ? ' · 눈' : ' · 비') : '');
+  const season = SEASONS[seasonOf(S.total + S.session)] + (curTod >= 0 ? ' ' + TOD_NAMES[curTod] : '') + (TERM ? ' · ' + TERM[2] : '') + (wTarget ? (weather === 'snow' ? ' · 눈' : ' · 비') : '');
   $('clockMeta').textContent = S.fishing
     ? `${PACE} · ${season}`
     : `장부에 적은 세월 ${fmtShort(S.total)} · ${season}`;
@@ -1041,6 +1165,9 @@ function recordLedger() {
   if (d < 1) { toast('아직 적을 세월이 없어요. 하루는 앉아 계셔야 해요.'); return; }
   S.total += d; store.set('total', S.total);
   if (d > S.best) { S.best = d; store.set('best', d); }
+  if (S.week !== weekKey()) { S.week = weekKey(); S.weekBest = 0; }
+  if (d > S.weekBest) S.weekBest = d;
+  store.set('week', S.week); store.set('weekBest', S.weekBest);
   S.session = 0; store.set('session', 0);
   S.shown.clear(); S.kingSeen = false;
   saveRemote();
@@ -1289,9 +1416,9 @@ function nameFor(by, fallbackIdx) { return (by && names.get(by)) || `강태공 $
 /* ---------------- 이웃 낚시꾼: 사람이 적을 때 곁을 지켜 준다 ---------------- */
 // 진짜 사람이 하나 올 때마다 하나씩 자리를 비켜 준다. 사람 수와 장부에는 들어가지 않는다.
 const NPCS = [
-  { name: '수염 긴 강태공', robe: '#5b6b5a', seat: 1 },
-  { name: '말 없는 왜가리', robe: '#7a6a8a', seat: 0 },
-  { name: '허허 웃는 뱃사공', robe: '#9a6a52', seat: 3 }
+  { name: '수염 긴 강태공', robe: '#5b6b5a', seat: 1, age: 2600 },
+  { name: '말 없는 왜가리', robe: '#7a6a8a', seat: 0, age: 120 },
+  { name: '허허 웃는 뱃사공', robe: '#9a6a52', seat: 3, age: 900 }
 ];
 NPCS.forEach(c => {
   c.g = makeAngler(c.robe); c.g.visible = false; scene.add(c.g);
@@ -1332,7 +1459,7 @@ function npcTea(c, hint) {
 const NPC_LINES = ['오늘은 강이 말이 많구려', '고기는 안 물어도 마음은 물리지', '저 산 너머 노루가 또 기웃거리는군', '비 오는 날엔 세월이 더 잘 낚인다오', '젊은이, 서두르지 마시게', '산그림자가 한 뼘 길어졌구려', '물새가 바늘을 놀리고 갔소', '십 년을 앉아 있으면 왕이 온다더이다'];
 const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오'];
 // 처음 온 사람에게 하나씩 알려 준다. 어디까지 했는지는 브라우저에 남겨 둔다
-let tutStep = store.get('tut', 0), tutT = 0, npcT = 40, greeted = tutStep < 8; // 튜토리얼 중인 사람에겐 '또 오셨구려' 인사를 하지 않는다
+let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 40, greeted = tutStep < 8; // 튜토리얼 중인 사람에겐 '또 오셨구려' 인사를 하지 않는다
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
 function tickNpc(dt) {
   for (const c of NPCS) if (c.on && c.reelAt && performance.now() > c.reelAt) { c.reelAt = 0; newSpot(c.g.userData); c.g.userData.castTarget = 1; }
@@ -1340,7 +1467,13 @@ function tickNpc(dt) {
   if (!on.length) return;
   tutT += dt;
   const A = on[0], B = on[1] || A, C = on[2] || B;
-  if (tutStep >= 8 && !greeted && tutT > 3) { greeted = true; A.g.userData.bowT = 2.4; npcSay(A, '또 오셨구려. 자리는 그대로 비워 두었소'); return; }
+  if (tutStep >= 8 && !greeted && tutT > 3) {
+    greeted = true; A.g.userData.bowT = 2.4;
+    const n = store.get('visits', 1), ORD = ['', '첫', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
+    npcSay(A, n >= 2 ? `${n <= 10 ? ORD[n] + ' ' : n}번째 찾아오셨구려. 자리는 그대로 비워 두었소` : '또 오셨구려. 자리는 그대로 비워 두었소');
+    return;
+  }
+  if (TERM && !termSaid && tutT > 9 && (tutStep >= 8 || tutStep === 0)) { termSaid = true; npcSay(B, TERM[5]); }
   switch (tutStep) {
     case 0: if (tutT > 3) { A.g.userData.bowT = 2.4; npcSay(A, '어서 오시오. 이 강엔 미끼 없는 곧은 바늘만 드리운다오'); tutNext(); } return;
     case 1:
@@ -1453,7 +1586,8 @@ function syncPeers(list) {
     const nm = cleanName(pr.name);
     if (o.by && nm) names.set(o.by, nm);
     o.tag.querySelector('.nm > span').textContent = nm || nameFor(o.by, i);
-    o.tag.querySelector('i').textContent = ''; // 남이 낚은 세월은 보여 주지 않는다
+    o.tag.querySelector('i').textContent = ''; // 남이 낚은 세월은 숫자로 보여 주지 않고, 모습으로만 드러난다
+    o.days = pr.fishing && Number.isFinite(pr.days) ? Math.max(0, pr.days) : 0;
     const em = pr.emote;
     if (em && typeof em === 'object' && em.n !== (o.lastEmote && o.lastEmote.n)) {
       const first = o.lastEmote === null;
@@ -1486,14 +1620,16 @@ function syncPeers(list) {
   if (list.length) peersSeen = true;
 }
 
-let ledgerDocs = [];
+let ledgerDocs = [], weekDocs = [], ledgerTab = 'week';
 function renderLedger() {
   const ol = $('ledgerList'); ol.textContent = '';
-  $('ledgerEmpty').hidden = ledgerDocs.length > 0;
+  const docs = ledgerTab === 'week' ? weekDocs : ledgerDocs;
+  $('ledgerEmpty').hidden = docs.length > 0;
+  $('ledgerEmpty').textContent = ledgerTab === 'week' ? '이번 주엔 아직 아무도 적지 않았어요. 첫 줄의 주인이 되어 보세요.' : '아직 장부에 오른 사람이 없어요. 세월을 낚은 뒤 ‘장부에 적기’를 누르면 첫 줄에 오릅니다.';
   let sum = 0;
   ledgerDocs.forEach(d => sum += d.seconds);
   $('allTotal').textContent = S.sb ? fmt(sum) : '공유 장부가 아직 연결되지 않았어요';
-  ledgerDocs.slice(0, 30).forEach((d, i) => {
+  docs.slice(0, 30).forEach((d, i) => {
     const li = document.createElement('li'); if (d.id === S.uid) li.className = 'me';
     const rk = document.createElement('span'); rk.className = 'rk'; rk.textContent = i + 1;
     const nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = d.id === S.uid ? `${S.name} (나)` : (d.name || '이름 모를 강태공');
@@ -1502,13 +1638,25 @@ function renderLedger() {
   });
 }
 renderLedger();
+function setLedgerTab(tab) {
+  ledgerTab = tab;
+  [['tabWeek', 'week'], ['tabAll', 'all']].forEach(([id, k]) => { $(id).classList.toggle('on', k === tab); $(id).setAttribute('aria-selected', String(k === tab)); });
+  renderLedger();
+}
+$('tabWeek').onclick = () => setLedgerTab('week');
+$('tabAll').onclick = () => setLedgerTab('all');
 
 async function loadLedger() {
   if (!S.sb) return;
   try {
-    const { data, error } = await S.sb.from('anglers').select('id,name,total,best').order('best', { ascending: false }).limit(300);
-    if (error || !data) return;
-    ledgerDocs = data.map(r => ({ id: r.id, name: cleanName(r.name), seconds: Number(r.total) || 0, best: Number(r.best) || 0 })).filter(d => d.seconds > 0);
+    const [all, wk] = await Promise.all([
+      S.sb.from('anglers').select('id,name,total,best').order('best', { ascending: false }).limit(300),
+      S.sb.from('anglers').select('id,name,week_best').eq('week', weekKey()).gt('week_best', 0).order('week_best', { ascending: false }).limit(100)
+    ]);
+    if (all.data) ledgerDocs = all.data.map(r => ({ id: r.id, name: cleanName(r.name), seconds: Number(r.total) || 0, best: Number(r.best) || 0 })).filter(d => d.seconds > 0);
+    if (wk.data) weekDocs = wk.data.map(r => ({ id: r.id, name: cleanName(r.name), best: Number(r.week_best) || 0 }));
+    // 데이터베이스에 주간 칸이 아직 없으면 탭을 숨기고 모든 세월만 보여 준다
+    const weekOk = !wk.error; document.querySelector('.ltabs').hidden = !weekOk; if (!weekOk && ledgerTab === 'week') ledgerTab = 'all';
     renderLedger();
   } catch {}
 }
@@ -1517,7 +1665,11 @@ let saving = false;
 async function saveRemote() {
   if (!S.sb || !S.uid || saving) return;
   saving = true;
-  try { await S.sb.from('anglers').upsert({ id: S.uid, name: S.name, total: Math.floor(S.total), best: S.best, updated_at: new Date().toISOString() }); } catch {}
+  const row = { id: S.uid, name: S.name, total: Math.floor(S.total), best: S.best, updated_at: new Date().toISOString() };
+  try {
+    const { error } = await S.sb.from('anglers').upsert(Object.assign({ week: S.week || null, week_best: S.week === weekKey() ? S.weekBest : 0 }, row));
+    if (error) await S.sb.from('anglers').upsert(row); // 주간 칸이 아직 없는 데이터베이스면 예전처럼 적는다
+  } catch {}
   saving = false;
   loadLedger();
 }
@@ -1533,7 +1685,9 @@ async function saveRemote() {
   } catch {}
   if (S.uid) {
     try {
-      const { data } = await sb.from('anglers').select('name,total,best').eq('id', S.uid).maybeSingle();
+      let { data, error } = await sb.from('anglers').select('name,total,best,week,week_best').eq('id', S.uid).maybeSingle();
+      if (error) ({ data } = await sb.from('anglers').select('name,total,best').eq('id', S.uid).maybeSingle());
+      if (data && data.week === weekKey() && data.week_best > (S.week === weekKey() ? S.weekBest : 0)) { S.week = data.week; S.weekBest = data.week_best; store.set('week', S.week); store.set('weekBest', S.weekBest); }
       if (data) {
         if (data.total > S.total) { S.total = data.total; store.set('total', S.total); }
         if (data.best > S.best) { S.best = data.best; store.set('best', S.best); }
@@ -1543,6 +1697,7 @@ async function saveRemote() {
   }
   updateClock();
   loadLedger();
+  if (S.uid) sb.from('visits').upsert({ uid: S.uid, day: kstDay() }, { onConflict: 'uid,day', ignoreDuplicates: true }).then(() => {}, () => {});
   setInterval(() => { if (!ledger.hidden) loadLedger(); }, 30000);
   // 탭이 오래 숨어 있거나 PC가 잠들면 연결이 끊긴다. 끊기면 토큰을 새로 받아 다시 앉는다.
   let chan = null, joining = false;
@@ -1599,6 +1754,8 @@ function frame() {
     S.session += dt * DAY;
     const d = Math.floor(S.session);
     if (MILESTONES[d] && !S.shown.has(d)) { S.shown.add(d); toast(MILESTONES[d]); }
+    if (d >= 360 && !S.shown.has('v1')) { S.shown.add('v1'); startVisit('wood'); }
+    if (d >= 1800 && !S.shown.has('v5')) { S.shown.add('v5'); startVisit('kids'); }
     if (d > 0 && d % 90 === 0 && !S.shown.has('s' + d)) { S.shown.add('s' + d); if (!MILESTONES[d]) toast(`${SEASONS[seasonOf(S.total + S.session)]}이 왔어요`); }
     if (d >= KING_AT && !S.kingSeen) { S.kingSeen = true; summonKing(); sfx.gong(); }
     S.nextAmbient -= dt;
@@ -1609,7 +1766,7 @@ function frame() {
     }
     saveTimer += dt; if (saveTimer > 10) { saveTimer = 0; store.set('session', Math.floor(S.session)); }
   }
-  uiTimer += dt; if (uiTimer > 0.25) { uiTimer = 0; updateClock(); pushPresence(false); }
+  uiTimer += dt; if (uiTimer > 0.25) { uiTimer = 0; updateClock(); pushPresence(false); setAge(me, S.session); for (const c of NPCS) setAge(c.g, c.age); for (const o of others.values()) setAge(o.g, o.days || 0); }
   applySeason(seasonOf(S.total + S.session));
   lookTimer += dt; if (lookTimer > 20) { lookTimer = 0; applyLook(); }
   updateWeather(dt);
@@ -1691,6 +1848,7 @@ applySeason(seasonOf(S.total + S.session));
 updateClock();
 // small opening flourish: a willow-side greeting
 setTimeout(() => toast('반계 강가에 오신 걸 환영해요. 바위 하나 비워 두었어요.'), 800);
+if (TERM) setTimeout(() => toast(`오늘은 ${TERM[2]}(${TERM[3]}). ${TERM[4]}`, 5500), 5200);
 requestAnimationFrame(frame);
 addEventListener('pagehide', () => { store.set('session', Math.floor(S.session)); });
 })();

@@ -47,9 +47,14 @@ section h2 span { font-family: var(--font-ui); font-size: 12px; color: var(--mut
 .chart svg { display: block; width: 100%; height: auto; overflow: visible; }
 .chart text { fill: var(--muted); font-size: 11px; font-family: var(--font-ui); }
 .chart .grid { stroke: var(--line); stroke-width: 1; }
-.chart .bar { fill: var(--gold); }
+.chart .bar { fill: #bf8633; }
+.chart .bar2 { fill: #4f93cf; }
+.chart .hit:hover + .bar + .bar2 { fill: #6aa6dc; }
+.key { display: inline-flex; align-items: center; gap: 6px; }
+.key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-left: 6px; }
+.key .k1 { background: #bf8633; } .key .k2 { background: #4f93cf; }
 .chart .hit { fill: transparent; cursor: default; }
-.chart .hit:hover + .bar, .chart .bar.hl { fill: #ffd28f; }
+.chart .hit:hover + .bar, .chart .bar.hl { fill: #d39a45; }
 .tip { position: absolute; pointer-events: none; background: var(--paper); color: var(--ink); font-size: 12px; padding: 5px 9px; border-radius: 8px; transform: translate(-50%, -110%); white-space: nowrap; font-variant-numeric: tabular-nums; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
@@ -79,13 +84,14 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
   <div class="tiles">
     <div class="tile"><small>오늘 처음 온 사람</small><b id="tToday">–</b></div>
+    <div class="tile"><small>오늘 다시 온 사람</small><b id="tBack">–</b></div>
     <div class="tile"><small>지금까지 온 사람</small><b id="tAll">–</b></div>
     <div class="tile"><small>장부에 적은 사람</small><b id="tRec">–</b></div>
     <div class="tile"><small>모두가 적은 세월</small><b id="tDays">–</b></div>
   </div>
 
   <section>
-    <h2>날짜별 처음 온 사람 <span>최근 14일 · 한국 시간</span></h2>
+    <h2>날짜별 찾아온 사람 <span>최근 14일 · 한국 시간</span><span class="key"><i class="k1"></i>처음 온 사람<i class="k2"></i>다시 온 사람</span></h2>
     <div class="chart" id="chart"><div class="empty">불러오는 중…</div></div>
   </section>
 
@@ -126,13 +132,13 @@ const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { 
 function drawChart(daily) {
   const box = $('chart'); box.textContent = '';
   const W = 700, H = 200, L = 28, B = 26, T = 10, n = daily.length;
-  const max = Math.max(4, ...daily.map(d => d.n));
+  const max = Math.max(4, ...daily.map(d => d.n + (d.r || 0)));
   const step = Math.ceil(max / 4), top = step * 4;
   const y = v => T + (H - T - B) * (1 - v / top);
   const bw = (W - L) / n, gap = Math.max(4, bw * 0.28);
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img');
-  svg.setAttribute('aria-label', '최근 14일 날짜별 처음 온 사람 수');
+  svg.setAttribute('aria-label', '최근 14일 날짜별 처음 온 사람과 다시 온 사람 수');
   for (let v = 0; v <= top; v += step) {
     const ln = document.createElementNS(ns, 'line'); ln.setAttribute('class', 'grid'); ln.setAttribute('x1', L); ln.setAttribute('x2', W); ln.setAttribute('y1', y(v)); ln.setAttribute('y2', y(v)); svg.appendChild(ln);
     const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', L - 6); tx.setAttribute('y', y(v) + 4); tx.setAttribute('text-anchor', 'end'); tx.textContent = v; svg.appendChild(tx);
@@ -142,14 +148,22 @@ function drawChart(daily) {
     const x = L + i * bw + gap / 2, w = bw - gap, h = Math.max(0, y(0) - y(d.n));
     const md = d.d.slice(5).replace('-', '/');
     const hit = document.createElementNS(ns, 'rect'); hit.setAttribute('class', 'hit'); hit.setAttribute('x', L + i * bw); hit.setAttribute('y', T); hit.setAttribute('width', bw); hit.setAttribute('height', H - T - B);
-    const bar = document.createElementNS(ns, 'path'); bar.setAttribute('class', 'bar');
-    const r = Math.min(4, w / 2, h);
-    bar.setAttribute('d', h > 0 ? `M${x},${y(0)} V${y(d.n) + r} Q${x},${y(d.n)} ${x + r},${y(d.n)} H${x + w - r} Q${x + w},${y(d.n)} ${x + w},${y(d.n) + r} V${y(0)} Z` : '');
-    hit.addEventListener('mouseenter', () => { tip.hidden = false; tip.textContent = `${md} · ${d.n}명`; const bx = box.getBoundingClientRect(), sx = bx.width / W; tip.style.left = ((x + w / 2) * sx + 10) + 'px'; tip.style.top = (y(d.n) * (bx.width / W) + 14) + 'px'; });
+    // 아래는 처음 온 사람, 그 위에 2px 띄워 다시 온 사람을 쌓는다. 맨 위 조각만 모서리를 둥글린다
+    const back = d.r || 0, tot = d.n + back;
+    const seg = (cls, v0, v1, round) => {
+      const p = document.createElementNS(ns, 'path'); p.setAttribute('class', cls);
+      const y0 = y(v0) - (v0 > 0 ? 2 : 0), y1 = y(v1), hh = y0 - y1;
+      if (hh <= 0) return p;
+      const r = round ? Math.min(4, w / 2, hh) : 0;
+      p.setAttribute('d', `M${x},${y0} V${y1 + r} Q${x},${y1} ${x + r},${y1} H${x + w - r} Q${x + w},${y1} ${x + w},${y1 + r} V${y0} Z`);
+      return p;
+    };
+    const bar = seg('bar', 0, d.n, !back), bar2 = seg('bar2', d.n, tot, true);
+    hit.addEventListener('mouseenter', () => { tip.hidden = false; tip.textContent = `${md} · 처음 ${d.n}명 · 다시 ${back}명`; const bx = box.getBoundingClientRect(), sx = bx.width / W; tip.style.left = ((x + w / 2) * sx + 10) + 'px'; tip.style.top = (y(tot) * (bx.width / W) + 14) + 'px'; });
     hit.addEventListener('mouseleave', () => { tip.hidden = true; });
-    svg.append(hit, bar);
+    svg.append(hit, bar, bar2);
     if (i % 2 === (n - 1) % 2) { const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', x + w / 2); tx.setAttribute('y', H - 8); tx.setAttribute('text-anchor', 'middle'); tx.textContent = md; svg.appendChild(tx); }
-    if (i === n - 1 && d.n > 0) { const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', x + w / 2); tx.setAttribute('y', y(d.n) - 6); tx.setAttribute('text-anchor', 'middle'); tx.style.fill = 'var(--paper)'; tx.textContent = d.n; svg.appendChild(tx); }
+    if (i === n - 1 && tot > 0) { const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', x + w / 2); tx.setAttribute('y', y(tot) - 6); tx.setAttribute('text-anchor', 'middle'); tx.style.fill = 'var(--paper)'; tx.textContent = tot; svg.appendChild(tx); }
   });
   box.append(svg, tip);
 }
@@ -163,6 +177,7 @@ async function refresh() {
     if (st) {
       $('tToday').textContent = num(st.visitors_today) + '명';
       $('tAll').textContent = num(st.visitors) + '명';
+      $('tBack').textContent = st.returning_today == null ? '–' : num(st.returning_today) + '명';
       $('tRec').textContent = num(st.recorders) + '명';
       $('tDays').textContent = fmt(st.total_days);
       drawChart(st.daily || []);
