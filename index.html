@@ -81,6 +81,10 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .tag .nm { background: rgba(27,23,18,.62); padding: 2px 9px; border-radius: 999px; }
 .tag .nm i { font-style: normal; color: var(--gold); margin-left: 6px; font-variant-numeric: tabular-nums; }
 .tag.me .nm { background: rgba(217,88,59,.85); }
+.tag.npc .nm { background: rgba(52,70,60,.72); }
+.tag.npc .nm i { color: #b9d6c2; }
+.actions button.pulse { animation: pulse 1.5s ease-in-out 6; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,184,103,0); } 50% { box-shadow: 0 0 0 7px rgba(240,184,103,.5); } }
 .tag.far { font-size: 10px; opacity: .85; }
 .tag.far .nm { padding: 1px 6px; }
 .tag.far .nm > span { display: none; }
@@ -964,6 +968,7 @@ function recordLedger() {
   $('rShare').value = `반계 강가에서 곧은 바늘로 세월 ${fmt(d)}을 낚아 장부에 적었다. 조과: ${title}.`;
   $('result').hidden = false;
   prepCard(d, title, stamp);
+  npcOnRecord();
   updateClock(); pushPresence(true);
 }
 
@@ -1041,6 +1046,11 @@ function emote(kind) {
     i = Math.floor(Math.random() * TEA_GIVE.length); say(me, TEA_GIVE[i]);
     flyTea(me, o.g);
     toast(`${o.tag.querySelector('.nm > span').textContent}님께 차 한잔을 건넸어요`);
+  } else if (kind === 'tea' && npcOn().length) {
+    const c = npcPick();
+    i = Math.floor(Math.random() * TEA_GIVE.length); say(me, TEA_GIVE[i]);
+    flyTea(me, c.g); toast(`${c.name}께 차 한잔을 건넸어요`);
+    setTimeout(() => npcSay(c, '고맙소, 따뜻하구려', 4), 1400);
   } else {
     const list = kind === 'poem' ? POEMS : kind === 'tea' ? TEA : BOW;
     i = Math.floor(Math.random() * list.length);
@@ -1049,6 +1059,7 @@ function emote(kind) {
   }
   myEmote = { k: kind, i, n: ++emoteSeq, to };
   pushPresence(true);
+  npcReact(kind);
 }
 let myEmote = null;
 $('btnBow').onclick = () => emote('bow');
@@ -1191,11 +1202,109 @@ const setMyTag = () => { myTag.querySelector('.nm > span').textContent = S.name;
 setMyTag();
 function nameFor(by, fallbackIdx) { return (by && names.get(by)) || `강태공 ${fallbackIdx + 1}`; }
 
+/* ---------------- 강가지기: 사람이 적을 때 곁을 지켜 주는 이웃 낚시꾼 ---------------- */
+// 진짜 사람이 아니라는 걸 숨기지 않는다: 이름표에 '강가지기'라고 적고, 사람 수에도 넣지 않는다.
+// 진짜 사람이 하나 올 때마다 하나씩 자리를 내어 준다.
+const NPCS = [
+  { name: '노어부', robe: '#5b6b5a', seat: 1 },
+  { name: '버들 선비', robe: '#7a6a8a', seat: 0 },
+  { name: '물새 할멈', robe: '#9a6a52', seat: 3 }
+];
+NPCS.forEach(c => {
+  c.g = makeAngler(c.robe); c.g.visible = false; scene.add(c.g);
+  const [x, z] = SPOTS[c.seat]; c.g.position.set(x, 0.25, z); c.g.rotation.y = -x * 0.012;
+  newSpot(c.g.userData); c.g.userData.castTarget = 1; c.g.userData.cast = 1;
+  c.tag = makeTag('npc'); c.tag.querySelector('.nm > span').textContent = c.name; c.tag.querySelector('i').textContent = '강가지기'; c.tag.hidden = true;
+  c.on = false;
+});
+let npcReady = false;
+function setNpcCount(n) {
+  NPCS.forEach((c, i) => {
+    const on = i < n;
+    if (on === c.on) return;
+    c.on = on; c.g.visible = on; c.tag.hidden = !on;
+    if (!on) {
+      c.g.userData.line.visible = c.g.userData.float.visible = false;
+      const b = bubbles.get(c.g); if (b) { b.el.remove(); bubbles.delete(c.g); }
+      if (npcReady) toast(`${c.name}께서 자리를 내어 주고 집으로 갔어요`);
+    }
+  });
+  npcReady = true;
+}
+const npcOn = () => NPCS.filter(c => c.on);
+const npcPick = () => { const l = npcOn(); return l[Math.floor(Math.random() * l.length)]; };
+const npcSay = (c, text, sec = 6) => { if (c && c.on) say(c.g, text, sec); };
+const npcSeat = () => NPCS.slice(0, npcOn().length).map(c => c.seat);
+function pulse(id) { const b = $(id); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); setTimeout(() => b.classList.remove('pulse'), 9000); }
+function npcTea(c, hint) {
+  if (!c) return;
+  npcSay(c, TEA_GIVE[Math.floor(Math.random() * TEA_GIVE.length)]);
+  flyTea(c.g, me); noteTitle('🍵 차 한잔이 도착했어요');
+  setTimeout(() => {
+    say(me, '(따뜻하다)'); sfx.call('clink', 0, 1);
+    toast(hint ? `${c.name}께서 차 한잔을 건넸어요. ‘차 한잔’을 누르면 옆 사람에게 건넬 수 있어요` : `${c.name}께서 차 한잔을 건넸어요`, 6000);
+  }, 1300);
+}
+const NPC_LINES = ['오늘은 강이 말이 많구려', '고기는 안 물어도 마음은 물리지', '저 산 너머 노루가 또 기웃거리는군', '비 오는 날엔 세월이 더 잘 낚인다오', '젊은이, 서두르지 마시게', '산그림자가 한 뼘 길어졌구려', '물새가 바늘을 놀리고 갔소', '십 년을 앉아 있으면 왕이 온다더이다'];
+const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오'];
+// 처음 온 사람에게 하나씩 알려 준다. 어디까지 했는지는 브라우저에 남겨 둔다
+let tutStep = store.get('tut', 0), tutT = 0, npcT = 40, greeted = tutStep < 8; // 튜토리얼 중인 사람에겐 '또 오셨구려' 인사를 하지 않는다
+const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
+function tickNpc(dt) {
+  for (const c of NPCS) if (c.on && c.reelAt && performance.now() > c.reelAt) { c.reelAt = 0; newSpot(c.g.userData); c.g.userData.castTarget = 1; }
+  const on = npcOn();
+  if (!on.length) return;
+  tutT += dt;
+  const A = on[0], B = on[1] || A, C = on[2] || B;
+  if (tutStep >= 8 && !greeted && tutT > 3) { greeted = true; A.g.userData.bowT = 2.4; npcSay(A, '또 오셨구려. 자리는 그대로 비워 두었소'); return; }
+  switch (tutStep) {
+    case 0: if (tutT > 3) { A.g.userData.bowT = 2.4; npcSay(A, '어서 오시오. 이 강엔 미끼 없는 곧은 바늘만 드리운다오'); tutNext(); } return;
+    case 1:
+      if (S.fishing) tutNext(2);
+      else if (tutT > 6) { npcSay(A, '저 아래 ‘낚싯대 드리우기’를 눌러 보시게', 8); pulse('btnCast'); tutNext(); }
+      return;
+    case 2: if (S.fishing && tutT > 1.5) { $('btnCast').classList.remove('pulse'); npcSay(B, '허허, 이제 기다리기만 하면 되오. 숨 한 번에 하루가 흐르지'); tutNext(); } return;
+    case 3: if (S.fishing && tutT > 12) { npcTea(A, true); tutNext(); } return;
+    case 4: if (tutT > 16) { C.g.userData.bowT = 2.4; npcSay(C, POEMS[0], 5); setTimeout(() => npcSay(C, '시가 떠오르면 ‘시 한 수’를 눌러 보시오. 다들 듣는다오'), 5500); tutNext(); } return;
+    case 5: if (tutT > 22) { npcSay(B, '찌가 흔들려도 서두르지 마시오. 거둬 봐야 빈 바늘이오'); tutNext(); } return;
+    case 6: if (S.session >= 30 && tutT > 18) { npcSay(A, '세월이 쌓이면 ‘장부에 적기’로 남겨 두시오. 한자리에 오래 앉을수록 윗줄에 오른다오', 8); pulse('btnRecord'); tutNext(); } return;
+    case 7: break; // 장부에 적을 때 npcOnRecord가 다음으로 넘긴다. 그동안에도 한담은 나눈다
+  }
+  npcT -= dt;
+  if (npcT > 0) return;
+  npcT = 35 + Math.random() * 50;
+  const c = npcPick(), r = Math.random();
+  if (r < 0.32) npcSay(c, POEMS[Math.floor(Math.random() * POEMS.length)]);
+  else if (r < 0.5 && S.fishing) npcTea(c, false);
+  else if (r < 0.62 && on.length > 1) { const d = on.find(x => x !== c); npcSay(c, TEA_GIVE[0]); flyTea(c.g, d.g); setTimeout(() => npcSay(d, '고맙소, 따뜻하구려', 4), 1400); }
+  else if (r < 0.72) { c.g.userData.castTarget = 0; npcSay(c, REEL[Math.floor(Math.random() * REEL.length)], 4); c.reelAt = performance.now() + 2600; }
+  else if (r < 0.82) { c.g.userData.bowT = 2.4; npcSay(c, BOW[1], 4); }
+  else npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)]);
+}
+function npcOnRecord() {
+  const c = npcPick(); if (!c) return;
+  const firstTime = tutStep < 8;
+  setTimeout(() => npcSay(c, firstTime ? '잘 적으셨소. 세월 카드로 벗들에게 자랑해도 좋소' : '허허, 또 한 줄 적으셨구려', 7), 900);
+  if (tutStep < 8) { $('btnRecord').classList.remove('pulse'); tutNext(8); }
+}
+// 내가 한 일에 강가지기가 답한다
+function npcReact(kind) {
+  const c = npcPick(); if (!c) return;
+  if (kind === 'bow') setTimeout(() => { c.g.userData.bowT = 2.4; npcSay(c, '(맞읍)', 3); }, 1100);
+  else if (kind === 'poem' && Math.random() < 0.6) setTimeout(() => npcSay(c, NPC_REPLY_POEM[Math.floor(Math.random() * NPC_REPLY_POEM.length)], 4), 2600);
+}
+setNpcCount(NPCS.length);
+
+let peersSeen = false;
 function syncPeers(list) {
   const rest = list.filter(p => !p.sameTab && p.kind === 'viewer').sort((a, b) => a.peer < b.peer ? -1 : 1);
   $('ppl').textContent = String(rest.length + 1);
   const keep = new Set();
-  rest.slice(0, SEATS.length).forEach((p, i) => {
+  const nNpc = Math.max(0, NPCS.length - rest.length);
+  const taken = new Set(NPCS.slice(0, nNpc).map(c => c.seat));
+  const free = SEATS.map((_, k) => k).filter(k => !taken.has(k));
+  let arrived = 0;
+  rest.slice(0, free.length).forEach((p, i) => {
     keep.add(p.peer);
     let o = others.get(p.peer);
     if (!o) {
@@ -1204,8 +1313,9 @@ function syncPeers(list) {
       scene.add(g); o = { g, tag: makeTag(), lastEmote: null, idx: i };
       others.set(p.peer, o);
       noteTitle('👤 누가 강가에 와서 앉았어요', true);
+      if (peersSeen) arrived++;
     }
-    const [x, z] = SEATS[i], far = i >= SPOTS.length;
+    const si = free[i], [x, z] = SEATS[si], far = si >= SPOTS.length;
     o.tag.classList.toggle('far', far);
     o.lift = far && Math.floor((x + 100) / 4) % 2 ? 3.5 : 2.8;
     if (far) { o.g.position.set(x, 0.6, z); o.g.rotation.y = Math.PI + x * 0.008; o.g.scale.setScalar(1.5); }
@@ -1242,6 +1352,9 @@ function syncPeers(list) {
     const b = bubbles.get(o.g); if (b) { b.el.remove(); bubbles.delete(o.g); }
     others.delete(peer);
   }
+  setNpcCount(nNpc);
+  if (arrived && npcOn().length) npcSay(npcOn()[0], '새 벗이 오셨구려. 어서 앉으시오', 5);
+  if (list.length) peersSeen = true;
 }
 
 let ledgerDocs = [];
@@ -1396,6 +1509,7 @@ function frame() {
 
   updateAngler(me, t, dt);
   for (const o of others.values()) updateAngler(o.g, t, dt);
+  for (const c of NPCS) if (c.on) updateAngler(c.g, t, dt);
   if (S.fishing && Math.random() < dt * 0.25 && me.userData.cast > 0.9) ripple(me.userData.float.position, 0.7);
   for (let i = ripples.length - 1; i >= 0; i--) {
     const r = ripples[i]; r.userData.t += dt; const k = r.userData.t / 2.6;
@@ -1417,7 +1531,7 @@ function frame() {
     if (k >= 1 || !S.fishing) { fishRun = null; fish.visible = false; }
   }
 
-  updateWild(dt); sfx.tick(dt);
+  updateWild(dt); sfx.tick(dt); tickNpc(dt);
 
   // king walk
   if (kingFig && kingWalk > 0) {
@@ -1436,6 +1550,7 @@ function frame() {
 
   placeLabel(myTag, me, 2.8); myTag.style.visibility = bubbles.has(me) ? 'hidden' : '';
   for (const o of others.values()) { placeLabel(o.tag, o.g, o.lift || 2.8); o.tag.style.visibility = bubbles.has(o.g) ? 'hidden' : ''; }
+  for (const c of NPCS) if (c.on) { placeLabel(c.tag, c.g, 2.8); c.tag.style.visibility = bubbles.has(c.g) ? 'hidden' : ''; }
   const now = performance.now() / 1000;
   for (const [g, b] of bubbles) {
     if (now > b.until) { b.el.style.opacity = 0; if (now > b.until + 0.5) { b.el.remove(); bubbles.delete(g); } continue; }
