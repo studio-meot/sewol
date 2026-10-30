@@ -14,7 +14,7 @@
 | `index.html` | 게임 전체 (three.js, supabase-js는 CDN) |
 | `config.js` | Supabase 주소와 공개(anon) 키. 비워 두면 혼자 낚시하는 모드 |
 | `supabase.sql` | 장부 테이블과 RLS 정책 |
-| `og.jpg` | 링크 미리보기 이미지 |
+| `og-v2.jpg` | 링크 미리보기 이미지 (바꿀 땐 파일 이름도 바꿔야 스레드·카카오가 새로 읽는다) |
 
 ## Supabase 설정
 
