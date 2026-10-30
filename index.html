@@ -175,7 +175,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <h3 id="rTitle">빈 바늘</h3>
     <div class="dur" id="rDur">0년 0개월 3일</div>
     <p id="rText"></p>
-    <div class="row"><button class="sec" id="rCopy">기록 복사</button><button class="pri" id="rAgain">계속 앉아 있기</button></div>
+    <div class="row"><button class="sec" id="rCard">세월 카드</button><button class="pri" id="rAgain">계속 앉아 있기</button></div>
     <textarea id="rShare" aria-hidden="true" tabindex="-1"></textarea>
   </div>
 </div>
@@ -207,6 +207,7 @@ const POEMS = [
   '물고기야, 나는 너를 원하지 않는다'
 ];
 const TEA = ['(후루룩…)', '차가 식기 전에 강이 먼저 식는구나', '(따뜻하다)'];
+const TEA_GIVE = ['차 한잔 드시오', '식기 전에 드시구려', '강바람이 차오. 한잔 하시오'];
 const BOW = ['(읍)', '강가의 벗들께 인사드리오', '(고개를 숙인다)'];
 const AMBIENT = [
   '잉어가 곧은 바늘을 보고 웃으며 지나갔어요',
@@ -642,8 +643,27 @@ function updateDeer(dt) {
   if (d.g.position.x * d.dir > 36) { d.g.visible = false; u.neck.rotation.z = 0; deer = null; }
 }
 
+// 건넨 찻잔이 한 사람에게서 다른 사람에게 포물선을 그리며 날아간다
+const cupGeo = new THREE.CylinderGeometry(0.13, 0.09, 0.16, 10), cupMat = lam('#ecdfc4');
+const teas = [];
+function flyTea(from, to) {
+  const m = new THREE.Mesh(cupGeo, cupMat); scene.add(m);
+  teas.push({ m, from, to, t: 0 });
+}
+const tA = new THREE.Vector3(), tB = new THREE.Vector3();
+function updateTea(dt) {
+  for (let i = teas.length - 1; i >= 0; i--) {
+    const c = teas[i]; c.t += dt; const k = Math.min(1, c.t / 1.2);
+    tA.copy(c.from.position); tA.y += 1.5; tB.copy(c.to.position); tB.y += 1.5;
+    c.m.position.lerpVectors(tA, tB, k); c.m.position.y += Math.sin(Math.PI * k) * 1.4;
+    c.m.rotation.z = Math.sin(k * Math.PI * 2) * 0.2;
+    if (k >= 1) { scene.remove(c.m); teas.splice(i, 1); }
+  }
+}
+
 function updateWild(dt) {
   updateDeer(dt);
+  updateTea(dt);
   nextFlock -= dt;
   if (nextFlock <= 0) { nextFlock = rand(20, 45); if (flocks.length < 2) spawnFlock(); }
   for (let i = flocks.length - 1; i >= 0; i--) {
@@ -722,18 +742,71 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
-/* ---------------- season application ---------------- */
-let curSeason = -1;
-const cA = new THREE.Color(), cB = new THREE.Color();
+/* ---------------- season & time of day ---------------- */
+// 한국 시간을 따라 해가 뜨고 지고 별이 뜬다. 주소 뒤에 ?hour=22 를 붙이면 그 시각으로 볼 수 있다
+const HOUR_Q = parseFloat(new URLSearchParams(location.search).get('hour'));
+function kstHour() {
+  if (Number.isFinite(HOUR_Q)) return ((HOUR_Q % 24) + 24) % 24;
+  const n = new Date(); return (n.getUTCHours() + 9) % 24 + n.getUTCMinutes() / 60;
+}
+const TOD_NAMES = ['밤', '새벽', '낮', '해질녘'];
+const TINT = [
+  { top: '#060a1c', mid: '#141d38', low: '#283150', fog: '#1a2134', water: '#1b2833' },
+  { top: '#2f3d6b', mid: '#c98f9a', low: '#f3cfb0', fog: '#a99aa6', water: '#3d5662' },
+  { top: '#5f8fc4', mid: '#bcd3df', low: '#ece3cc', fog: '#c3cdca', water: '#4a6f76' }
+];
+const TINT_AMT = [0.85, 0.55, 0.6];
+// [시각, 밤, 새벽, 낮, 해질녘]
+const TOD_KEYS = [[0, 1, 0, 0, 0], [4.8, 1, 0, 0, 0], [6.2, 0, 1, 0, 0], [8, 0, 0, 1, 0], [16.3, 0, 0, 1, 0], [18.3, 0, 0, 0, 1], [19.8, 1, 0, 0, 0], [24, 1, 0, 0, 0]];
+function todWeights(h) {
+  for (let i = 0; i < TOD_KEYS.length - 1; i++) {
+    const a = TOD_KEYS[i], b = TOD_KEYS[i + 1];
+    if (h >= a[0] && h <= b[0]) { const k = (h - a[0]) / (b[0] - a[0]), e = k * k * (3 - 2 * k); return [1, 2, 3, 4].map(j => a[j] + (b[j] - a[j]) * e); }
+  }
+  return [1, 0, 0, 0];
+}
+const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTex('rgba(244,246,255,1)', 'rgba(160,180,255,0)'), fog: false, depthWrite: false, transparent: true, opacity: 0 }));
+moon.scale.set(11, 11, 1); moon.position.set(34, 30, -130); scene.add(moon);
+const stars = (() => {
+  const n = 320, pos = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) pos.set([(Math.random() - 0.5) * 460, 18 + Math.pow(Math.random(), 0.7) * 130, -150 - Math.random() * 30], i * 3);
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#fff8ea', size: 1.8, sizeAttenuation: false, fog: false, transparent: true, opacity: 0, depthWrite: false }));
+  scene.add(p); return p;
+})();
+let curSeason = -1, curTod = -1, night = 0;
+const cA = new THREE.Color(), cB = new THREE.Color(), cMix = new THREE.Color();
+function applyLook() {
+  if (curSeason < 0) return;
+  const s = curSeason, p = SKY[s], w = todWeights(kstHour()), L = {};
+  for (const key of ['top', 'mid', 'low', 'fog', 'water']) {
+    cMix.setRGB(0, 0, 0);
+    w.forEach((wi, i) => {
+      if (!wi) return;
+      cA.set(p[key]); if (i < 3) cA.lerp(cB.set(TINT[i][key]), TINT_AMT[i]);
+      cMix.r += cA.r * wi; cMix.g += cA.g * wi; cMix.b += cA.b * wi;
+    });
+    L[key] = '#' + cMix.getHexString();
+  }
+  night = w[0];
+  const br = w[0] * 0.42 + w[1] * 0.8 + w[2] * 1.1 + w[3];
+  paintSky(L); scene.fog.color.set(L.fog);
+  ground.material.color.set(p.ground).multiplyScalar(br); strandMat.color.set(p.leaf).multiplyScalar(br); crown.material.color.set(p.leaf).multiplyScalar(br);
+  water.material.color.set(L.water); water.material.specular.set(night > 0.5 ? '#6f7fa8' : '#ffcf8a');
+  ridges.forEach((r, i) => { cA.set(['#9b7f7a', '#7d6b67', '#5c5450'][i]).multiplyScalar(br); cB.set(L.fog); r.material.color.copy(cA.lerp(cB, s === 3 ? 0.3 - i * 0.08 : 0.15 + 0.12 * w[2])); });
+  hemi.intensity = 0.85 * br; fill.intensity = 0.25 + night * 0.2;
+  sunLight.intensity = 1.05 * (1 - night * 0.7);
+  sunLight.color.set(night > 0.5 ? '#9fb3ff' : w[2] > 0.5 ? '#fff0d6' : '#ffc07a');
+  sun.position.y = 9 + w[2] * 22 + w[1] * 2; sun.material.opacity = 1 - night;
+  moon.material.opacity = night; stars.material.opacity = night * 0.95;
+  const tod = w.reduce((a, v, i) => v > w[a] ? i : a, 0);
+  if (tod !== curTod) { curTod = tod; updateClock(); }
+}
 function applySeason(s) {
   if (s === curSeason) return; curSeason = s;
-  const p = SKY[s];
-  paintSky(p); scene.fog.color.set(p.fog);
-  ground.material.color.set(p.ground); strandMat.color.set(p.leaf); crown.material.color.set(p.leaf);
-  water.material.color.set(p.water);
   crown.visible = s !== 3; strands.forEach(st => st.scale.y = s === 3 ? 0.35 : 1);
-  ridges.forEach((r, i) => { cA.set(['#9b7f7a', '#7d6b67', '#5c5450'][i]); cB.set(p.fog); r.material.color.copy(cA.lerp(cB, s === 3 ? 0.3 - i * 0.08 : 0.15)); });
   const st = P_STYLE[s]; pMat.color.set(st.color); pMat.size = st.size; pMat.blending = st.blend; pMat.needsUpdate = true;
+  applyLook();
   updateClock();
 }
 
@@ -746,7 +819,7 @@ function toast(msg, ms = 4200) {
 function updateClock() {
   $('clockVal').textContent = fmt(S.session);
   $('clock').classList.toggle('idle', !S.fishing);
-  const season = SEASONS[seasonOf(S.total + S.session)];
+  const season = SEASONS[seasonOf(S.total + S.session)] + (curTod >= 0 ? ' ' + TOD_NAMES[curTod] : '');
   $('clockMeta').textContent = S.fishing
     ? `${PACE} · ${season}`
     : `장부에 적은 세월 ${fmtShort(S.total)} · ${season}`;
@@ -818,6 +891,7 @@ function recordLedger() {
   $('rTitle').textContent = title; $('rDur').textContent = `이번에 적은 세월 ${fmt(d)}`; $('rText').textContent = text; $('rStamp').textContent = stamp;
   $('rShare').value = `반계 강가에서 곧은 바늘로 세월 ${fmt(d)}을 낚아 장부에 적었다. 조과: ${title}.`;
   $('result').hidden = false;
+  prepCard(d, title, stamp);
   updateClock(); pushPresence(true);
 }
 
@@ -825,20 +899,83 @@ $('btnCast').onclick = () => { S.fishing ? reelIn() : setFishing(true); };
 $('btnRecord').onclick = recordLedger;
 $('rAgain').onclick = () => { $('result').hidden = true; };
 $('result').onclick = e => { if (e.target.id === 'result') $('result').hidden = true; };
-$('rCopy').onclick = () => {
-  const txt = $('rShare').value;
-  const done = () => { $('rCopy').textContent = '복사했어요'; setTimeout(() => $('rCopy').textContent = '기록 복사', 1800); };
-  const fallback = () => { const ta = $('rShare'); ta.select(); try { document.execCommand('copy'); done(); } catch { $('rCopy').textContent = '복사 안 됨'; } };
-  try { navigator.clipboard.writeText(txt).then(done, fallback); } catch { fallback(); }
+// 세월 카드: 지금 강가 풍경 한 컷 위에 낚은 세월을 적은 4:5 이미지. 폰에선 바로 공유, PC에선 저장
+const SITE_URL = 'https://studio-meot.github.io/sewol/';
+let cardJob = null;
+async function makeCard(d, title, stamp) {
+  const W = 1080, H = 1350, PH = 860, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  try { await Promise.all(['700 110px "Gowun Batang"', '400 40px "Gowun Batang"', '400 30px "Gowun Dodum"'].map(f => document.fonts.load(f))); } catch {}
+  renderer.render(scene, camera); // 그린 직후에 복사해야 WebGL 화면이 비지 않는다
+  const src = renderer.domElement, dr = W / PH;
+  let sw = src.width, sh = src.height, sx = 0, sy = 0;
+  if (sw / sh > dr) { sw = sh * dr; sx = (src.width - sw) / 2; } else { sh = sw / dr; sy = (src.height - sh) / 2; }
+  g.drawImage(src, sx, sy, sw, sh, 0, 0, W, PH);
+  const paper = '#f3e6cc', ink = '#1b1712', dim = '#7a6a4f';
+  const fade = g.createLinearGradient(0, PH - 220, 0, PH + 10); fade.addColorStop(0, 'rgba(243,230,204,0)'); fade.addColorStop(1, paper);
+  g.fillStyle = fade; g.fillRect(0, PH - 220, W, 230);
+  g.fillStyle = paper; g.fillRect(0, PH, W, H - PH);
+  g.fillStyle = 'rgba(120,90,50,.07)'; for (let i = 0; i < 2600; i++) g.fillRect(Math.random() * W, PH - 120 + Math.random() * (H - PH + 120), 2, 2);
+  // 왼쪽 위 낙관과 이름
+  g.fillStyle = '#d9583b'; g.beginPath(); g.roundRect ? g.roundRect(56, 56, 72, 72, 14) : g.rect(56, 56, 72, 72); g.fill();
+  g.fillStyle = '#fff4e6'; g.font = '700 40px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('渭', 92, 94);
+  g.textAlign = 'left'; g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 14; g.fillStyle = '#f3e6cc'; g.font = '700 40px "Gowun Batang", serif'; g.fillText('세월낚시터', 150, 94); g.shadowBlur = 0;
+  g.textBaseline = 'alphabetic';
+  // 본문
+  const L = 72;
+  g.fillStyle = dim; g.font = '400 30px "Gowun Dodum", sans-serif'; g.fillText('반계 강가 · 세월 장부', L, 925);
+  let size = 112; g.fillStyle = ink;
+  do { g.font = `700 ${size}px "Gowun Batang", serif`; size -= 4; } while (g.measureText(fmt(d)).width > W - L * 2 - 170 && size > 60);
+  g.fillText(fmt(d), L, 1050);
+  g.fillStyle = '#5a4c36'; g.font = '400 40px "Gowun Batang", serif'; g.fillText('곧은 바늘로 이만큼의 세월을 낚았다', L, 1122);
+  g.fillStyle = '#3a3126'; g.font = '400 34px "Gowun Batang", serif'; g.fillText(`조과(釣果) · ${title}`, L, 1184);
+  // 도장
+  g.save(); g.translate(W - 140, 985); g.rotate(-0.14); g.globalAlpha = 0.88; g.strokeStyle = '#d9583b'; g.lineWidth = 6;
+  g.strokeRect(-62, -62, 124, 124); g.fillStyle = '#d9583b'; g.font = '700 64px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(stamp, 0, 4); g.restore();
+  // 아래 줄
+  g.fillStyle = 'rgba(27,23,18,.15)'; g.fillRect(L, 1236, W - L * 2, 2);
+  g.textAlign = 'left'; g.fillStyle = ink; g.font = '400 30px "Gowun Dodum", sans-serif'; g.fillText(S.name, L, 1292);
+  g.textAlign = 'right'; g.fillStyle = dim; g.fillText('studio-meot.github.io/sewol', W - L, 1292);
+  const blob = await new Promise(r => c.toBlob(r, 'image/png'));
+  return new File([blob], `세월카드-${d}일.png`, { type: 'image/png' });
+}
+// 장부에 적는 순간 미리 그려 둔다. 폰의 공유 창은 누른 즉시 열어야 하기 때문
+function prepCard(d, title, stamp) { cardJob = makeCard(d, title, stamp).catch(() => null); }
+$('rCard').onclick = async () => {
+  const btn = $('rCard'), label = '세월 카드';
+  const flash = msg => { btn.textContent = msg; setTimeout(() => { btn.textContent = label; }, 2200); };
+  const text = $('rShare').value + ' ' + SITE_URL;
+  btn.disabled = true; btn.textContent = '그리는 중…';
+  const file = cardJob ? await cardJob : null;
+  btn.disabled = false; btn.textContent = label;
+  if (!file) { flash('다시 눌러 주세요'); if (!cardJob) return; cardJob = null; return; }
+  const phone = matchMedia('(pointer: coarse)').matches;
+  if (phone && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], text }); } catch (e) { if (e && e.name !== 'AbortError') flash('공유가 안 됐어요'); }
+    return;
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  try { await navigator.clipboard.writeText(text); flash('저장 · 문구 복사됨'); } catch { flash('저장했어요'); }
 };
 let emoteSeq = 0;
+// 차 한잔: 강가에 다른 사람이 있으면 그중 한 사람에게 건넨다. 없으면 혼자 마신다
 function emote(kind) {
   sfx.ensure();
-  const list = kind === 'poem' ? POEMS : kind === 'tea' ? TEA : BOW;
-  const i = Math.floor(Math.random() * list.length);
-  say(me, list[i]);
-  if (kind === 'bow') me.userData.bowT = 2.4;
-  myEmote = { k: kind, i, n: ++emoteSeq };
+  let i, to = null;
+  if (kind === 'tea' && others.size) {
+    const keys = [...others.keys()]; to = keys[Math.floor(Math.random() * keys.length)];
+    const o = others.get(to);
+    i = Math.floor(Math.random() * TEA_GIVE.length); say(me, TEA_GIVE[i]);
+    flyTea(me, o.g);
+    toast(`${o.tag.querySelector('.nm > span').textContent}님께 차 한잔을 건넸어요`);
+  } else {
+    const list = kind === 'poem' ? POEMS : kind === 'tea' ? TEA : BOW;
+    i = Math.floor(Math.random() * list.length);
+    say(me, list[i]);
+    if (kind === 'bow') me.userData.bowT = 2.4;
+  }
+  myEmote = { k: kind, i, n: ++emoteSeq, to };
   pushPresence(true);
 }
 let myEmote = null;
@@ -885,6 +1022,7 @@ const sfx = (() => {
   }
   const rnd = n => Math.floor(Math.random() * n);
   const CALLS = {
+    clink(p, v) { voice({ f0: 2350, f1: 2330, dur: 0.35, vol: 0.05 * v, pan: p }); voice({ f0: 3520, f1: 3500, dur: 0.25, vol: 0.03 * v, at: 0.01, pan: p }); },
     chirp(p, v) { const n = 3 + rnd(3); for (let i = 0; i < n; i++) { const b = 3300 + Math.random() * 1400; voice({ f0: b, f1: b * (Math.random() < 0.5 ? 1.3 : 0.75), dur: 0.05 + Math.random() * 0.04, vol: 0.05 * v, at: i * 0.09, pan: p }); } },
     song(p, v) {
       const base = 2300 + Math.random() * 900, n = 5 + rnd(5), lilt = 1 + Math.random() * 2;
@@ -986,7 +1124,14 @@ function syncPeers(list) {
     if (em && typeof em === 'object' && em.n !== (o.lastEmote && o.lastEmote.n)) {
       const first = o.lastEmote === null;
       o.lastEmote = em;
-      if (!first) {
+      if (!first && em.k === 'tea' && typeof em.to === 'string') {
+        if (Number.isInteger(em.i) && TEA_GIVE[em.i]) say(o.g, TEA_GIVE[em.i]);
+        const giver = nm || nameFor(o.by, i);
+        if (em.to === S.tabId) {
+          flyTea(o.g, me);
+          setTimeout(() => { say(me, '(따뜻하다)'); sfx.call('clink', 0, 1); toast(`${giver}님이 차 한잔을 건넸어요`); }, 1300);
+        } else { const r = others.get(em.to); if (r) flyTea(o.g, r.g); }
+      } else if (!first) {
         const list2 = em.k === 'poem' ? POEMS : em.k === 'tea' ? TEA : em.k === 'bow' ? BOW : null;
         if (list2 && Number.isInteger(em.i) && list2[em.i]) { say(o.g, list2[em.i]); if (em.k === 'bow') o.g.userData.bowT = 2.4; }
       }
@@ -1105,7 +1250,7 @@ function placeLabel(el, obj, y) {
   el.style.left = ((proj.x + 1) / 2 * innerWidth) + 'px';
   el.style.top = ((1 - proj.y) / 2 * innerHeight) + 'px';
 }
-let saveTimer = 0, uiTimer = 0;
+let saveTimer = 0, uiTimer = 0, lookTimer = 0;
 function frame() {
   const dt = Math.min(0.25, clock.getDelta()); t += dt;
   if (S.fishing) {
@@ -1124,6 +1269,7 @@ function frame() {
   }
   uiTimer += dt; if (uiTimer > 0.25) { uiTimer = 0; updateClock(); pushPresence(false); }
   applySeason(seasonOf(S.total + S.session));
+  lookTimer += dt; if (lookTimer > 20) { lookTimer = 0; applyLook(); }
 
   // water waves
   const wp = waterGeo.attributes.position.array;
@@ -1132,7 +1278,7 @@ function frame() {
     wp[i + 1] = Math.sin(x * 0.35 + t * 0.9) * 0.06 + Math.sin(z * 0.5 + t * 1.3 + x * 0.1) * 0.05;
   }
   waterGeo.attributes.position.needsUpdate = true; waterGeo.computeVertexNormals();
-  glint.material.opacity = 0.42 + Math.sin(t * 0.8) * 0.1;
+  glint.material.opacity = (0.42 + Math.sin(t * 0.8) * 0.1) * (1 - night * 0.65);
 
   reeds.forEach(r => { r.rotation.z = Math.sin(t * 0.9 + r.userData.ph) * 0.08; });
   strands.forEach(s => { s.rotation.z = Math.sin(t * 0.7 + s.userData.ph) * 0.07; s.rotation.x = Math.sin(t * 0.5 + s.userData.ph * 1.3) * 0.05; });
