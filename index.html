@@ -159,6 +159,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <button id="btnCross" aria-label="건너편 강가로 건너가기"><svg viewBox="0 0 24 24"><path d="M3 15.5h18l-2.5 4h-13z"/><path d="M12 15.5V4l6 9.5h-6"/></svg><span class="lbl" id="crossLbl">건너가기</span></button>
     <button id="btnSound" aria-label="물소리 켜기"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path id="snd-x" d="M16 9.5l4 5M20 9.5l-4 5"/><path id="snd-on" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" style="display:none"/></svg></button>
     <button id="btnLedger" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M6 3.5h10.5L19 6v14.5H6z"/><path d="M9 8.5h7M9 12h7M9 15.5h4.5"/></svg><span class="lbl">세월 장부</span></button>
+    <button id="btnShare" aria-label="강가 공유하기"><svg viewBox="0 0 24 24"><path d="M12 3.5v11"/><path d="M8 7.5l4-4 4 4"/><path d="M6 11.5H5v8.5h14v-8.5h-1"/></svg><span class="lbl">공유</span></button>
   </div>
 </div>
 
@@ -1770,6 +1771,20 @@ function crossRiver() {
   }, 750);
 }
 $('btnCross').onclick = crossRiver;
+
+// 강가 공유: 폰에선 기기의 공유 창, PC에선 링크 복사
+$('btnShare').onclick = async () => {
+  const url = 'https://studio-meot.github.io/sewol/';
+  const text = S.fishing && S.session >= 1
+    ? `반계 강가에서 ${fmtShort(S.session)}째 세월을 낚는 중이에요. 바위 하나 비워 둘게요.`
+    : '물고기는 안 잡혀요. 곧은 바늘로 세월만 낚는 강가예요. 바위 하나 비워 둘게요.';
+  if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+    try { await navigator.share({ title: '세월낚시터', text, url }); } catch {}
+    return;
+  }
+  try { await navigator.clipboard.writeText(`${text} ${url}`); toast('링크를 복사했어요. 벗에게 건네 보세요.'); }
+  catch { toast(url, 6000); }
+};
 updateCross();
 
 let peersSeen = false;
