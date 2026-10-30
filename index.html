@@ -694,9 +694,39 @@ function updateTea(dt) {
   }
 }
 
+// 아주 가끔, 얼척없게도 부캉이(상어)가 강을 가로지른다. ?shark=1 이면 곧바로 나온다
+const SHARK_Q = new URLSearchParams(location.search).has('shark');
+const sharkMat = new THREE.MeshLambertMaterial({ color: '#3d4650', flatShading: true });
+const shark = new THREE.Group();
+{
+  const fin = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.05, 3), sharkMat); fin.scale.z = 0.2; fin.rotation.z = 0.38; fin.position.y = 0.36; shark.add(fin);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.6, 10, 8), new THREE.MeshLambertMaterial({ color: '#27303a', transparent: true, opacity: 0.5, depthWrite: false })); body.scale.set(4.2, 0.5, 0.95); body.position.y = -0.38; shark.add(body);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.7, 3), sharkMat); tail.scale.z = 0.2; tail.rotation.z = 0.55; tail.position.set(-2.7, 0.1, 0); shark.add(tail);
+  shark.userData.tail = tail;
+}
+shark.scale.setScalar(1.5); shark.visible = false; scene.add(shark);
+const SHARK_TOAST = ['…방금 지나간 거, 붕어 맞지요?', '부캉이가 지나갔어요. 곧은 바늘이라 다행이에요', '강에 상어라니. 세월이 오래되면 별게 다 지나가나 봐요', '방금 그건 못 본 걸로 해요'];
+const SHARK_SAY = ['허허… 못 본 걸로 하겠소', '저건 내 바늘엔 안 걸리오', '물고기도 체급이 있구려', '…오늘은 일찍 들어가야겠소'];
+let sharkRun = null, nextShark = SHARK_Q ? 4 : rand(240, 600);
+function updateShark(dt) {
+  if (!sharkRun) { nextShark -= dt; if (nextShark <= 0) { nextShark = rand(420, 1100); const dir = Math.random() < 0.5 ? 1 : -1; sharkRun = { dir, x: -dir * 46, z: me.position.z - FLIP() * rand(10, 22), t: 0, wake: 0, said: false }; shark.visible = true; } return; }
+  const r = sharkRun; r.t += dt; r.x += r.dir * 4.6 * dt;
+  shark.position.set(r.x, 0, r.z + Math.sin(r.t * 0.9) * 0.8);
+  shark.rotation.y = (r.dir > 0 ? 0 : Math.PI) - Math.cos(r.t * 0.9) * 0.16 * r.dir;
+  shark.userData.tail.rotation.y = Math.sin(r.t * 6) * 0.45;
+  r.wake -= dt; if (r.wake <= 0) { r.wake = 0.3; ripple({ x: r.x - r.dir * 0.6, z: shark.position.z }, 0.7); }
+  if (!r.said && Math.abs(r.x - me.position.x) < 15) {
+    r.said = true; sfx.call('deep', (r.x - me.position.x) / 25, 1);
+    toast(SHARK_TOAST[Math.floor(Math.random() * SHARK_TOAST.length)], 5000); noteTitle('🦈 …방금 뭐가 지나갔어요');
+    const c = npcPick(); if (c) setTimeout(() => npcSay(c, SHARK_SAY[Math.floor(Math.random() * SHARK_SAY.length)], 5, true), 1800);
+  }
+  if (r.x * r.dir > 48) { shark.visible = false; sharkRun = null; }
+}
+
 function updateWild(dt) {
   updateDeer(dt);
   updateTea(dt);
+  updateShark(dt);
   nextFlock -= dt;
   if (nextFlock <= 0) { nextFlock = rand(20, 45); if (flocks.length < 2) spawnFlock(); }
   for (let i = flocks.length - 1; i >= 0; i--) {
@@ -1163,6 +1193,7 @@ const sfx = (() => {
   }
   const rnd = n => Math.floor(Math.random() * n);
   const CALLS = {
+    deep(p, v) { voice({ f0: 85, f1: 52, dur: 2.2, vol: 0.16 * v, type: 'triangle', att: 0.6, pan: p }); voice({ f0: 170, f1: 104, dur: 1.6, vol: 0.04 * v, type: 'sawtooth', bp: 300, q: 1, att: 0.5, pan: p }); },
     clink(p, v) { voice({ f0: 2350, f1: 2330, dur: 0.35, vol: 0.05 * v, pan: p }); voice({ f0: 3520, f1: 3500, dur: 0.25, vol: 0.03 * v, at: 0.01, pan: p }); },
     chirp(p, v) { const n = 3 + rnd(3); for (let i = 0; i < n; i++) { const b = 3300 + Math.random() * 1400; voice({ f0: b, f1: b * (Math.random() < 0.5 ? 1.3 : 0.75), dur: 0.05 + Math.random() * 0.04, vol: 0.05 * v, at: i * 0.09, pan: p }); } },
     song(p, v) {
