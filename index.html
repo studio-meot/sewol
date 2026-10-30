@@ -515,6 +515,171 @@ function startFish() {
   fish.visible = true;
 }
 
+/* ---------------- birds & leaping fish ---------------- */
+const rand = (a, b) => a + Math.random() * (b - a);
+// 계절마다 다른 새: 봄 제비, 여름 백로, 가을 기러기(V자), 겨울 까마귀
+const BIRDS = [
+  { color: '#2f2d38', size: 0.42, speed: 10, n: [2, 4], flap: 11, glide: 0.3, y: [3, 7], swoop: 1.2, call: 'chirp', v: false },
+  { color: '#f3efe6', size: 0.95, speed: 4.2, n: [1, 3], flap: 2.4, glide: 0.5, y: [3.5, 7], swoop: 0.25, call: 'egret', v: false },
+  { color: '#5a4e44', size: 0.75, speed: 6, n: [5, 9], flap: 3, glide: 0.1, y: [10, 15], swoop: 0.15, call: 'honk', v: true },
+  { color: '#1d1c22', size: 0.6, speed: 5.2, n: [1, 3], flap: 4.2, glide: 0.3, y: [6, 11], swoop: 0.3, call: 'caw', v: false }
+];
+const wingGeo = new THREE.BufferGeometry();
+wingGeo.setAttribute('position', new THREE.Float32BufferAttribute([-0.22, 0, 0, 0.2, 0, 0, -0.05, 0, 0.95], 3)); wingGeo.computeVertexNormals();
+function makeBird(kind) {
+  const m = new THREE.MeshLambertMaterial({ color: kind.color, flatShading: true, side: THREE.DoubleSide });
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.75, 5), m); body.rotation.z = -Math.PI / 2; g.add(body);
+  const wl = new THREE.Mesh(wingGeo, m), wr = new THREE.Mesh(wingGeo, m); wr.scale.z = -1; g.add(wl, wr);
+  g.scale.setScalar(kind.size * 1.3); g.userData = { wl, wr, ph: Math.random() * 6 };
+  return g;
+}
+const flocks = [];
+let nextFlock = 6;
+function spawnFlock() {
+  const kind = BIRDS[curSeason < 0 ? 0 : curSeason];
+  const dir = Math.random() < 0.5 ? 1 : -1, n = Math.round(rand(kind.n[0], kind.n[1]));
+  const birds = [];
+  for (let i = 0; i < n; i++) {
+    const b = makeBird(kind), r = Math.ceil(i / 2), s = i % 2 ? 1 : -1;
+    b.userData.off = kind.v ? new THREE.Vector3(-r * 1.3, r * 0.08, s * r * 1.1) : new THREE.Vector3(i ? -rand(0.5, 5) : 0, rand(-0.8, 0.8), rand(-2.5, 2.5));
+    b.rotation.y = dir > 0 ? 0 : Math.PI;
+    scene.add(b); birds.push(b);
+  }
+  flocks.push({ kind, dir, x: -dir * rand(38, 46), y: rand(kind.y[0], kind.y[1]), z: rand(-32, -7), birds, t: 0, callT: rand(0.3, 1.5), drift: rand(-0.5, 0.5) });
+}
+
+// 멀리서도 가까이서도 한 번씩 튀어오르는 물고기
+const leapMat = new THREE.MeshLambertMaterial({ color: '#b7c0bd', flatShading: true });
+function makeLeaper() {
+  const g = new THREE.Group(), pitch = new THREE.Group(); g.add(pitch);
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), leapMat); b.scale.set(1.7, 0.5, 0.55); pitch.add(b);
+  const tl = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.26, 4), leapMat); tl.rotation.z = Math.PI / 2; tl.position.x = -0.42; tl.scale.z = 0.3; pitch.add(tl);
+  g.userData = { pitch, tail: tl }; g.visible = false; scene.add(g); return g;
+}
+const leapers = [makeLeaper(), makeLeaper()], leaps = [];
+let nextLeap = 4;
+const DN = 120, dPos = new Float32Array(DN * 3).fill(-10), dVel = new Float32Array(DN * 3), dLife = new Float32Array(DN);
+const dGeo = new THREE.BufferGeometry(); dGeo.setAttribute('position', new THREE.BufferAttribute(dPos, 3));
+const drops = new THREE.Points(dGeo, new THREE.PointsMaterial({ color: '#fff4e2', size: 0.11, transparent: true, opacity: 0.9, depthWrite: false, map: radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)'), alphaTest: 0.02 }));
+drops.frustumCulled = false; scene.add(drops);
+let dNext = 0;
+function splash(p, s) {
+  ripple(p, s); ripple(p, s * 0.55);
+  for (let i = 0; i < 12; i++) {
+    const j = dNext; dNext = (dNext + 1) % DN;
+    const a = Math.random() * Math.PI * 2, h = rand(0.3, 1) * s;
+    dPos.set([p.x, 0.1, p.z], j * 3); dVel.set([Math.cos(a) * h, rand(1.5, 2.8) * Math.sqrt(s), Math.sin(a) * h], j * 3); dLife[j] = 1;
+  }
+}
+function splashSound(l, k) { sfx.splash(l.far ? 0.22 * k : 0.6 * k, l.x / 25); }
+function startLeap() {
+  const L = leapers.find(l => !l.visible); if (!L) return;
+  const far = Math.random() < 0.65;
+  const x = far ? rand(-34, 34) : rand(-7, 7), z = far ? rand(-40, -13) : rand(-9, -3.5);
+  const sc = far ? 1.8 : 1.1, ang = Math.random() * Math.PI * 2;
+  L.visible = true; L.scale.setScalar(sc); L.rotation.set(0, ang, 0);
+  const l = { L, x, z, ang, far, sc, t: 0, dur: rand(0.75, 1.05), h: rand(0.7, 1.3) * sc, run: rand(1, 1.8) * sc };
+  leaps.push(l); splash({ x, z }, sc * 0.7); splashSound(l, 0.6);
+}
+
+// 먼 산 너머로 빼꼼 고개를 내미는 노루, 건너편 물가로 물 마시러 오는 노루
+function makeDeer(mat) {
+  const g = new THREE.Group();
+  const box = (w, h, d, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); return m; };
+  g.add(box(1.0, 0.42, 0.36, 0, 0.95, 0), box(0.12, 0.12, 0.12, -0.54, 1.1, 0));
+  const legs = [[-0.38, -0.12], [-0.38, 0.12], [0.36, -0.12], [0.36, 0.12]].map(([x, z]) => { const p = new THREE.Group(); p.position.set(x, 0.8, z); p.add(box(0.08, 0.8, 0.08, 0, -0.4, 0)); g.add(p); return p; });
+  const neck = new THREE.Group(); neck.position.set(0.4, 1.05, 0); g.add(neck);
+  const n = box(0.16, 0.62, 0.16, 0.1, 0.27, 0); n.rotation.z = -0.35; neck.add(n);
+  const head = new THREE.Group(); head.position.set(0.22, 0.58, 0); neck.add(head);
+  head.add(box(0.36, 0.2, 0.18, 0.1, 0, 0));
+  const ears = [0.08, -0.08].map(z => { const e = box(0.06, 0.22, 0.1, -0.06, 0.17, z); e.rotation.x = z * 3; head.add(e); return e; });
+  g.userData = { legs, neck, head, ears };
+  g.visible = false; scene.add(g);
+  return g;
+}
+const peekDeer = makeDeer(new THREE.MeshBasicMaterial({ color: '#3a3330' }));
+const shoreDeer = makeDeer(lam('#7a5a3e'));
+let deer = null, nextDeer = rand(12, 20);
+const ridgeY = x => Math.max(0, 1 + 12 * (0.55 + 0.45 * Math.sin(x * 0.021 + 2.2) * Math.sin(x * 0.007 + 2.2 * 2.3) + 0.18 * Math.sin(x * 0.09 + 2.2 * 5)));
+function startDeer() {
+  if (Math.random() < 0.6) {
+    // 능선 꼭대기가 충분히 높은 곳에서만 고개를 내민다
+    const xs = []; for (let x = -28; x <= 28; x += 4) if (ridgeY(x) > 4) xs.push(x);
+    if (!xs.length) return;
+    const x = xs[Math.floor(Math.random() * xs.length)], s = 3;
+    // 능선은 4칸마다 꺾이는 선이라 몸통 양 끝의 가장 낮은 높이에 맞춰 숨긴다
+    const at = v => { const a = Math.floor(v / 4) * 4, k = (v - a) / 4; return ridgeY(a) * (1 - k) + ridgeY(a + 4) * k; };
+    const y0 = Math.min(at(x - 1.4), at(x), at(x + 1.4));
+    peekDeer.scale.setScalar(s); peekDeer.rotation.y = Math.random() < 0.5 ? 0 : Math.PI;
+    peekDeer.position.set(x, y0 - 2 * s, -60.6); peekDeer.visible = true;
+    deer = { kind: 'peek', g: peekDeer, t: 0, dur: rand(6, 10), lo: y0 - 2 * s, hi: y0 - 1.28 * s };
+  } else {
+    const dir = Math.random() < 0.5 ? 1 : -1, s = 1.5;
+    shoreDeer.scale.setScalar(s); shoreDeer.rotation.y = dir > 0 ? 0 : Math.PI;
+    shoreDeer.position.set(-dir * 34, 0.6, -42.6); shoreDeer.visible = true;
+    deer = { kind: 'shore', g: shoreDeer, t: 0, dir, stopX: rand(-14, 14), drink: 0, drank: false };
+  }
+}
+function updateDeer(dt) {
+  if (!deer) { nextDeer -= dt; if (nextDeer <= 0) { nextDeer = rand(30, 60); startDeer(); } return; }
+  const d = deer, u = d.g.userData; d.t += dt;
+  u.ears.forEach((e, i) => { e.rotation.y = Math.sin(d.t * 9 + i) > 0.97 ? 0.5 : 0; });
+  if (d.kind === 'peek') {
+    const up = Math.min(1, d.t / 1.4, (d.dur - d.t) / 1.4), e = up * up * (3 - 2 * up);
+    d.g.position.y = d.lo + (d.hi - d.lo) * Math.max(0, e);
+    u.head.rotation.y = Math.sin(d.t * 0.9) > 0.3 ? 0.9 : Math.sin(d.t * 0.9) < -0.5 ? -0.5 : 0;
+    if (d.t >= d.dur) { d.g.visible = false; deer = null; }
+    return;
+  }
+  const walking = !(d.drink > 0);
+  if (walking) d.g.position.x += d.dir * 1.3 * dt;
+  if (!d.drank && Math.abs(d.g.position.x - d.stopX) < 0.1) { d.drank = true; d.drink = rand(4, 7); }
+  if (d.drink > 0) d.drink -= dt;
+  const want = d.drink > 0.8 ? -1.35 : 0;
+  u.neck.rotation.z += (want - u.neck.rotation.z) * Math.min(1, dt * 2.5);
+  u.legs.forEach((l, i) => { l.rotation.z = walking ? Math.sin(d.t * 6 + (i % 2) * Math.PI + (i > 1 ? Math.PI / 2 : 0)) * 0.35 : l.rotation.z * 0.9; });
+  if (d.g.position.x * d.dir > 36) { d.g.visible = false; u.neck.rotation.z = 0; deer = null; }
+}
+
+function updateWild(dt) {
+  updateDeer(dt);
+  nextFlock -= dt;
+  if (nextFlock <= 0) { nextFlock = rand(20, 45); if (flocks.length < 2) spawnFlock(); }
+  for (let i = flocks.length - 1; i >= 0; i--) {
+    const f = flocks[i], k = f.kind;
+    f.t += dt; f.x += f.dir * k.speed * dt; f.z += f.drift * dt;
+    for (const b of f.birds) {
+      const u = b.userData, o = u.off;
+      b.position.set(f.x + o.x * f.dir, f.y + o.y + Math.sin(f.t * 1.3 + u.ph) * k.swoop, f.z + o.z);
+      const glide = Math.sin(f.t * 0.5 + u.ph) > 1 - k.glide * 2 ? 0.12 : 1;
+      const a = Math.sin(f.t * k.flap + u.ph) * 0.75 * glide + 0.12;
+      u.wl.rotation.x = -a; u.wr.rotation.x = a;
+    }
+    f.callT -= dt;
+    if (f.callT <= 0) { f.callT = rand(1.8, 4.5); if (Math.abs(f.x) < 30) sfx.call(k.call, f.x / 30, Math.max(0.35, 1 + f.z / 45)); }
+    if (f.x * f.dir > 52) { f.birds.forEach(b => scene.remove(b)); flocks.splice(i, 1); }
+  }
+
+  nextLeap -= dt;
+  if (nextLeap <= 0) { nextLeap = rand(8, 20) * (curSeason === 3 ? 2 : 1); startLeap(); }
+  for (let i = leaps.length - 1; i >= 0; i--) {
+    const l = leaps[i]; l.t += dt;
+    const k = Math.min(1, l.t / l.dur), s = k * l.run;
+    l.L.position.set(l.x + Math.cos(l.ang) * s, -0.15 + Math.sin(Math.PI * k) * l.h, l.z - Math.sin(l.ang) * s);
+    l.L.userData.pitch.rotation.z = Math.atan2(l.h * Math.PI * Math.cos(Math.PI * k), l.run);
+    l.L.userData.tail.rotation.y = Math.sin(l.t * 22) * 0.45;
+    if (k >= 1) { splash(l.L.position, l.sc); splashSound(l, 1); l.L.visible = false; leaps.splice(i, 1); }
+  }
+  for (let j = 0; j < DN; j++) {
+    if (dLife[j] <= 0) continue;
+    const o = j * 3; dLife[j] -= dt * 1.3; dVel[o + 1] -= 9.8 * dt;
+    dPos[o] += dVel[o] * dt; dPos[o + 1] += dVel[o + 1] * dt; dPos[o + 2] += dVel[o + 2] * dt;
+    if (dPos[o + 1] < 0 || dLife[j] <= 0) { dPos[o + 1] = -10; dLife[j] = 0; }
+  }
+  dGeo.attributes.position.needsUpdate = true;
+}
+
 // King Wen
 let kingFig = null, kingWalk = 0;
 function summonKing() {
@@ -689,7 +854,7 @@ $('ledgerClose').onclick = () => toggleLedger(false);
 
 /* ---------------- sound ---------------- */
 const sfx = (() => {
-  let ctx = null, master = null, on = false, birdT = 0;
+  let ctx = null, master = null, noise = null, on = false, birdT = 0;
   function build() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
@@ -700,7 +865,35 @@ const sfx = (() => {
     const g = ctx.createGain(); g.gain.value = 0.5;
     const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.13; lg.gain.value = 0.18; lfo.connect(lg); lg.connect(g.gain); lfo.start();
     src.connect(lp); lp.connect(g); g.connect(master); src.start();
+    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   }
+  function out(node, pan) {
+    if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)) * 0.8; node.connect(p); p.connect(master); }
+    else node.connect(master);
+  }
+  // 새소리 한 음: 주파수가 미끄러지는 짧은 소리. bp를 주면 띠 필터로 목청 같은 질감을 낸다
+  function voice(o) {
+    if (!ctx || !on) return;
+    const t = ctx.currentTime + (o.at || 0), osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(o.f0, t); osc.frequency.exponentialRampToValueAtTime(o.f1, t + o.dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol, t + (o.att || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
+    let node = osc;
+    if (o.bp) { const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = o.bp; f.Q.value = o.q || 3; node.connect(f); node = f; }
+    node.connect(g); out(g, o.pan);
+    osc.start(t); osc.stop(t + o.dur + 0.05);
+  }
+  const rnd = n => Math.floor(Math.random() * n);
+  const CALLS = {
+    chirp(p, v) { const n = 3 + rnd(3); for (let i = 0; i < n; i++) { const b = 3300 + Math.random() * 1400; voice({ f0: b, f1: b * (Math.random() < 0.5 ? 1.3 : 0.75), dur: 0.05 + Math.random() * 0.04, vol: 0.05 * v, at: i * 0.09, pan: p }); } },
+    song(p, v) {
+      const base = 2300 + Math.random() * 900, n = 5 + rnd(5), lilt = 1 + Math.random() * 2;
+      for (let i = 0; i < n; i++) { const f = base * (1 + 0.22 * Math.sin(i * lilt)); voice({ f0: f, f1: f * (i === n - 1 ? 0.7 : 1.18), dur: i === n - 1 ? 0.22 : 0.07, vol: 0.04 * v, at: i * 0.11 + (i > n / 2 ? 0.18 : 0), pan: p }); }
+    },
+    egret(p, v) { voice({ f0: 380, f1: 250, dur: 0.34, vol: 0.08 * v, type: 'sawtooth', bp: 700, q: 2, att: 0.02, pan: p }); },
+    honk(p, v) { const k = 1 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 540, f1: 440, dur: 0.2, vol: 0.06 * v, type: 'sawtooth', bp: 1000, q: 4, at: i * 0.3, att: 0.03, pan: p }); },
+    caw(p, v) { const k = 2 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 640, f1: 470, dur: 0.28, vol: 0.06 * v, type: 'sawtooth', bp: 1300, q: 1.5, at: i * 0.42, att: 0.02, pan: p }); }
+  };
   function tone(f0, f1, dur, vol, type = 'sine') {
     if (!ctx || !on) return;
     const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime;
@@ -719,9 +912,23 @@ const sfx = (() => {
     },
     plop() { setTimeout(() => { tone(700, 140, 0.22, 0.35); }, 600); },
     gong() { [110, 220.5, 331, 523].forEach((f, i) => tone(f, f * 0.995, 5 - i, 0.25 / (i + 1))); },
+    call(kind, pan, vol) { if (on && CALLS[kind]) CALLS[kind](pan, vol); },
+    splash(vol, pan) {
+      if (!ctx || !on) return;
+      const t = ctx.currentTime, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noise; f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 0.7;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * 0.5, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+      src.connect(f); f.connect(g); out(g, pan); src.start(t); src.stop(t + 0.45);
+      voice({ f0: 420, f1: 110, dur: 0.18, vol: vol * 0.35, pan });
+    },
+    // 버드나무 쪽에서 들려오는 새소리. 봄·여름엔 지저귐, 가을엔 드문드문, 겨울엔 멀리서 까마귀
     tick(dt) {
       if (!on) return; birdT -= dt;
-      if (birdT <= 0) { birdT = 7 + Math.random() * 14; const b = 2600 + Math.random() * 900; tone(b, b * 1.25, 0.09, 0.05); setTimeout(() => tone(b * 1.1, b * 0.9, 0.12, 0.04), 140); }
+      if (birdT > 0) return;
+      const s = curSeason < 0 ? 0 : curSeason, p = -0.5 + Math.random() * 0.4;
+      if (s === 3) { birdT = 25 + Math.random() * 25; CALLS.caw(0.6, 0.4); }
+      else if (s === 2) { birdT = 12 + Math.random() * 18; CALLS.chirp(p, 0.8); }
+      else { birdT = 5 + Math.random() * 11; Math.random() < 0.7 ? CALLS.song(p, 1) : CALLS.chirp(p, 1); }
     }
   };
 })();
@@ -962,6 +1169,8 @@ function frame() {
     if (k > 0.48 && !fishRun.nibbled) { fishRun.nibbled = true; me.userData.nibble = 0.9; ripple(me.userData.float.position, 0.9); toast(AMBIENT[Math.random() < 0.5 ? 0 : 4]); }
     if (k >= 1 || !S.fishing) { fishRun = null; fish.visible = false; }
   }
+
+  updateWild(dt); sfx.tick(dt);
 
   // king walk
   if (kingFig && kingWalk > 0) {
