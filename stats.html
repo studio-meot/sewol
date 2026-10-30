@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>세월낚시터 강가 현황</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: one narrow column; live headline first, then tiles, the 14-day chart, who is sitting now, the ledger. Single dusk look, like the game. */
+:root {
+  --ink: #1b1712;
+  --panel: #241f19;
+  --line: rgba(243, 230, 204, 0.12);
+  --paper: #f3e6cc;
+  --muted: #b3a58a;
+  --gold: #f0b867;
+  --live: #7fc79a;
+  --vermilion: #d9583b;
+  --font-display: "Gowun Batang", "Nanum Myeongjo", serif;
+  --font-ui: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--ink); color: var(--paper); font-family: var(--font-ui); word-break: keep-all; }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 28px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px; }
+header { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+header h1 { margin: 0; font-family: var(--font-display); font-size: 26px; display: flex; align-items: center; gap: 10px; }
+.seal { width: 32px; height: 32px; border-radius: 7px; background: var(--vermilion); color: #fff4e6; display: grid; place-items: center; font-size: 16px; }
+header a { color: var(--muted); font-size: 13px; }
+.updated { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.hero { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.hero .n { font-family: var(--font-display); font-weight: 700; font-size: 56px; line-height: 1; font-variant-numeric: tabular-nums; }
+.hero .lbl { font-size: 14px; color: var(--muted); display: grid; gap: 4px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); width: max-content; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.pill.on .dot { background: var(--live); box-shadow: 0 0 0 3px rgba(127,199,154,.18); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 6px; }
+.tile small { font-size: 12px; color: var(--muted); }
+.tile b { font-family: var(--font-display); font-size: 24px; font-variant-numeric: tabular-nums; }
+section h2 { margin: 0 0 10px; font-family: var(--font-display); font-size: 17px; }
+section h2 span { font-family: var(--font-ui); font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 8px; }
+.chart { position: relative; border: 1px solid var(--line); border-radius: 12px; padding: 14px 10px 6px; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.chart text { fill: var(--muted); font-size: 11px; font-family: var(--font-ui); }
+.chart .grid { stroke: var(--line); stroke-width: 1; }
+.chart .bar { fill: var(--gold); }
+.chart .hit { fill: transparent; cursor: default; }
+.chart .hit:hover + .bar, .chart .bar.hl { fill: #ffd28f; }
+.tip { position: absolute; pointer-events: none; background: var(--paper); color: var(--ink); font-size: 12px; padding: 5px 9px; border-radius: 8px; transform: translate(-50%, -110%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; color: var(--muted); font-weight: 400; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.state.on { color: var(--live); }
+.empty { color: var(--muted); font-size: 14px; padding: 12px 10px; }
+.note { font-size: 12px; color: var(--muted); line-height: 1.7; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="seal">渭</span>강가 현황</h1>
+    <div class="updated" id="updated">불러오는 중…</div>
+  </header>
+
+  <div class="hero">
+    <div class="n" id="liveN">–</div>
+    <div class="lbl">
+      <span>지금 강가에 앉아 있는 사람</span>
+      <span class="pill" id="livePill"><span class="dot"></span><span id="liveTxt">연결 중</span></span>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><small>오늘 처음 온 사람</small><b id="tToday">–</b></div>
+    <div class="tile"><small>지금까지 온 사람</small><b id="tAll">–</b></div>
+    <div class="tile"><small>장부에 적은 사람</small><b id="tRec">–</b></div>
+    <div class="tile"><small>모두가 적은 세월</small><b id="tDays">–</b></div>
+  </div>
+
+  <section>
+    <h2>날짜별 처음 온 사람 <span>최근 14일 · 한국 시간</span></h2>
+    <div class="chart" id="chart"><div class="empty">불러오는 중…</div></div>
+  </section>
+
+  <section>
+    <h2>지금 앉아 있는 사람 <span>실시간</span></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>닉네임</th><th>상태</th><th class="num">이번에 낚은 세월</th></tr></thead>
+      <tbody id="liveRows"><tr><td colspan="3" class="empty">아직 아무도 없어요.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>세월 장부 <span>한자리에서 가장 오래 앉은 순</span></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>#</th><th>닉네임</th><th class="num">최장 세월</th><th class="num">적은 세월 합계</th></tr></thead>
+      <tbody id="ledgerRows"><tr><td colspan="4" class="empty">아직 장부가 비어 있어요.</td></tr></tbody>
+    </table></div>
+  </section>
+
+  <p class="note">‘처음 온 사람’은 브라우저 기준이에요. 같은 사람이 다른 기기나 시크릿 창으로 오면 따로 셉니다. 이 페이지는 강가에 앉지 않고 지켜보기만 해서 인원수에 잡히지 않아요. 숫자는 30초마다, 앉아 있는 사람은 실시간으로 바뀝니다.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const CFG = window.SEWOL_CONFIG || {};
+const YEAR = 360, MONTH = 30;
+const fmt = days => { const d = Math.floor(days), y = Math.floor(d / YEAR), m = Math.floor((d % YEAR) / MONTH); return y ? `${y}년 ${m}개월` : m ? `${m}개월 ${d % MONTH}일` : `${d}일`; };
+const clean = v => typeof v === 'string' ? v.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 20) : '';
+const num = n => Number(n || 0).toLocaleString('ko-KR');
+function cell(text, cls) { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; return td; }
+
+if (!CFG.supabaseUrl || !window.supabase) { $('updated').textContent = 'Supabase 설정이 없어요'; return; }
+const sb = window.supabase.createClient(CFG.supabaseUrl, CFG.supabaseAnonKey, { auth: { persistSession: false } });
+
+function drawChart(daily) {
+  const box = $('chart'); box.textContent = '';
+  const W = 700, H = 200, L = 28, B = 26, T = 10, n = daily.length;
+  const max = Math.max(4, ...daily.map(d => d.n));
+  const step = Math.ceil(max / 4), top = step * 4;
+  const y = v => T + (H - T - B) * (1 - v / top);
+  const bw = (W - L) / n, gap = Math.max(4, bw * 0.28);
+  const ns = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`); svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', '최근 14일 날짜별 처음 온 사람 수');
+  for (let v = 0; v <= top; v += step) {
+    const ln = document.createElementNS(ns, 'line'); ln.setAttribute('class', 'grid'); ln.setAttribute('x1', L); ln.setAttribute('x2', W); ln.setAttribute('y1', y(v)); ln.setAttribute('y2', y(v)); svg.appendChild(ln);
+    const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', L - 6); tx.setAttribute('y', y(v) + 4); tx.setAttribute('text-anchor', 'end'); tx.textContent = v; svg.appendChild(tx);
+  }
+  const tip = document.createElement('div'); tip.className = 'tip'; tip.hidden = true;
+  daily.forEach((d, i) => {
+    const x = L + i * bw + gap / 2, w = bw - gap, h = Math.max(0, y(0) - y(d.n));
+    const md = d.d.slice(5).replace('-', '/');
+    const hit = document.createElementNS(ns, 'rect'); hit.setAttribute('class', 'hit'); hit.setAttribute('x', L + i * bw); hit.setAttribute('y', T); hit.setAttribute('width', bw); hit.setAttribute('height', H - T - B);
+    const bar = document.createElementNS(ns, 'path'); bar.setAttribute('class', 'bar');
+    const r = Math.min(4, w / 2, h);
+    bar.setAttribute('d', h > 0 ? `M${x},${y(0)} V${y(d.n) + r} Q${x},${y(d.n)} ${x + r},${y(d.n)} H${x + w - r} Q${x + w},${y(d.n)} ${x + w},${y(d.n) + r} V${y(0)} Z` : '');
+    hit.addEventListener('mouseenter', () => { tip.hidden = false; tip.textContent = `${md} · ${d.n}명`; const bx = box.getBoundingClientRect(), sx = bx.width / W; tip.style.left = ((x + w / 2) * sx + 10) + 'px'; tip.style.top = (y(d.n) * (bx.width / W) + 14) + 'px'; });
+    hit.addEventListener('mouseleave', () => { tip.hidden = true; });
+    svg.append(hit, bar);
+    if (i % 2 === (n - 1) % 2) { const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', x + w / 2); tx.setAttribute('y', H - 8); tx.setAttribute('text-anchor', 'middle'); tx.textContent = md; svg.appendChild(tx); }
+    if (i === n - 1 && d.n > 0) { const tx = document.createElementNS(ns, 'text'); tx.setAttribute('x', x + w / 2); tx.setAttribute('y', y(d.n) - 6); tx.setAttribute('text-anchor', 'middle'); tx.style.fill = 'var(--paper)'; tx.textContent = d.n; svg.appendChild(tx); }
+  });
+  box.append(svg, tip);
+}
+
+async function refresh() {
+  try {
+    const [{ data: st }, { data: rows }] = await Promise.all([
+      sb.rpc('sewol_stats'),
+      sb.from('anglers').select('name,total,best').order('best', { ascending: false }).limit(20)
+    ]);
+    if (st) {
+      $('tToday').textContent = num(st.visitors_today) + '명';
+      $('tAll').textContent = num(st.visitors) + '명';
+      $('tRec').textContent = num(st.recorders) + '명';
+      $('tDays').textContent = fmt(st.total_days);
+      drawChart(st.daily || []);
+    }
+    const tb = $('ledgerRows'); tb.textContent = '';
+    if (!rows || !rows.length) tb.innerHTML = '<tr><td colspan="4" class="empty">아직 장부가 비어 있어요.</td></tr>';
+    else rows.forEach((r, i) => { const tr = document.createElement('tr'); tr.append(cell(i + 1), cell(clean(r.name) || '이름 모를 강태공'), cell(fmt(r.best), 'num'), cell(fmt(r.total), 'num')); tb.appendChild(tr); });
+    $('updated').textContent = '숫자 갱신 ' + new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  } catch { $('updated').textContent = '불러오지 못했어요. 잠시 후 다시 시도합니다'; }
+}
+refresh(); setInterval(refresh, 30000);
+
+// 강가 채널을 지켜보기만 한다 (track 하지 않으므로 인원수에 잡히지 않는다)
+const chan = sb.channel('riverbank', { config: { presence: { key: 'observer-' + Math.random().toString(36).slice(2), enabled: true } } });
+chan.on('presence', { event: 'sync' }, () => {
+  const st = chan.presenceState();
+  const people = Object.values(st).map(m => m[m.length - 1] || {});
+  $('liveN').textContent = people.length;
+  const tb = $('liveRows'); tb.textContent = '';
+  if (!people.length) { tb.innerHTML = '<tr><td colspan="3" class="empty">아직 아무도 없어요.</td></tr>'; return; }
+  people.sort((a, b) => (b.days || 0) - (a.days || 0)).forEach(p => {
+    const tr = document.createElement('tr');
+    const st = document.createElement('td'); const s = document.createElement('span'); s.className = 'state' + (p.fishing ? ' on' : ''); s.textContent = p.fishing ? '● 낚는 중' : '○ 쉬는 중'; st.appendChild(s);
+    tr.append(cell(clean(p.name) || '강태공'), st, cell(p.fishing ? fmt(p.days || 0) : '–', 'num'));
+    tb.appendChild(tr);
+  });
+});
+chan.subscribe(status => {
+  const on = status === 'SUBSCRIBED';
+  $('livePill').classList.toggle('on', on);
+  $('liveTxt').textContent = on ? '실시간 연결됨' : '다시 연결 중';
+  if (on && $('liveN').textContent === '–') $('liveN').textContent = '0';
+});
+})();
+</script>
+</body>
+</html>
