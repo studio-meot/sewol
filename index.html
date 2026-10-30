@@ -128,8 +128,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 @media (max-width: 520px) {
   .place span { display: none; }
-  .actions button { min-width: 56px; padding: 8px 6px; font-size: 12px; }
-  .actions .cast { min-width: 88px; }
+  .actions button { min-width: 47px; padding: 7px 3px; font-size: 11.5px; gap: 3px; }
+  .actions .cast { min-width: 78px; font-size: 13px; }
+  .actions svg { width: 20px; height: 20px; }
   .tools .lbl { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .king { animation: none; } #toast { transition: none; } }
@@ -159,6 +160,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   <div class="actions pill">
     <button id="btnCast" class="cast"><svg viewBox="0 0 24 24"><path d="M4 20L17 4"/><path d="M17 4v13"/><circle cx="17" cy="19" r="1.6"/></svg><span id="castLbl">낚싯대 드리우기</span></button>
     <button id="btnBow"><svg viewBox="0 0 24 24"><path d="M8 13l4-8 4 8"/><path d="M6.5 13h11l-1.5 6.5h-8z"/></svg>읍하기</button>
+    <button id="btnWave"><svg viewBox="0 0 24 24"><path d="M8.5 12.5V6a1.5 1.5 0 0 1 3 0v5.5"/><path d="M11.5 11V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14.5 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-.6a6 6 0 0 1-4.7-2.3L3.6 14.4a1.5 1.5 0 0 1 2.3-1.9l2.6 2.6"/><path d="M19.5 3.5c1 .7 1.6 1.6 1.8 2.8M3.2 6.5c.3-1.1.9-2 1.9-2.7"/></svg>손 흔들기</button>
     <button id="btnTea"><svg viewBox="0 0 24 24"><path d="M5 10h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M9 3.5c-.8 1 .8 2-.1 3.2M12.5 3.5c-.8 1 .8 2-.1 3.2"/></svg>차 한잔</button>
     <button id="btnPoem"><svg viewBox="0 0 24 24"><path d="M7 3.5h9.5v17H7z"/><path d="M11.8 7v9.5"/><path d="M7 3.5c-1.5 0-2.5.8-2.5 2M7 20.5c-1.5 0-2.5-.8-2.5-2v-13"/></svg>시 한 수</button>
     <button id="btnRecord" disabled><svg viewBox="0 0 24 24"><path d="M15.5 3.5l5 5L10 19l-5.5.5.5-5.5z"/><path d="M13.5 5.5l5 5"/></svg>장부에 적기</button>
@@ -218,6 +220,7 @@ const POEMS = [
 const TEA = ['(후루룩…)', '차가 식기 전에 강이 먼저 식는구나', '(따뜻하다)'];
 const TEA_GIVE = ['차 한잔 드시오', '식기 전에 드시구려', '강바람이 차오. 한잔 하시오'];
 const BOW = ['(읍)', '강가의 벗들께 인사드리오', '(고개를 숙인다)'];
+const WAVE = ['(손을 흔든다)', '어이— 거기 계시오?', '반갑소!', '여기요, 여기!'];
 const AMBIENT = [
   '잉어가 곧은 바늘을 보고 웃으며 지나갔어요',
   '바람이 찌를 살짝 흔들고 갔어요',
@@ -460,7 +463,7 @@ function makeAngler(robe, opts = {}) {
   const fTop = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshLambertMaterial({ color: '#e0412c' })); fTop.position.y = 0.06;
   const fBot = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), new THREE.MeshLambertMaterial({ color: '#fbf6ea' })); fBot.position.y = -0.02;
   float.add(fTop, fBot); scene.add(float);
-  g.userData = { root, body, head, arms, armL, armR, rodPivot, tip, line, float, cast: 0, castTarget: 0, bow: 0, bowT: 0, ph: Math.random() * 6, floatOff: new THREE.Vector3(1.9, 0, -3.6) };
+  g.userData = { root, body, head, arms, armL, armR, rodPivot, tip, line, float, cast: 0, castTarget: 0, bow: 0, bowT: 0, ph: Math.random() * 6, floatOff: new THREE.Vector3(1.9, 0, -3.6), armBase: armR.position.clone(), waveT: 0 };
   return g;
 }
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
@@ -471,6 +474,9 @@ function updateAngler(a, t, dt) {
   u.rodPivot.rotation.x = -0.25 - u.cast * 0.95;
   u.rodPivot.rotation.z = -0.15 - u.cast * (0.12 + (u.floatOff.x - 0.8) * 0.1);
   u.armL.rotation.x = u.armR.rotation.x = 1.1 + u.cast * 0.3;
+  // 손 흔들기: 오른팔을 머리 위로 들어 좌우로 흔든다
+  if (u.waveT > 0) { u.waveT -= dt; const up = Math.min(1, u.waveT / 0.3, (2.8 - u.waveT) / 0.3); u.armR.position.set(0.3 + 0.16 * up, -0.12 + 0.56 * up, -0.2 + 0.14 * up); u.armR.rotation.set(1.1 * (1 - up) + 0.1 * up, 0, -0.35 + up * Math.sin(t * 11) * 0.5); }
+  else { u.armR.position.copy(u.armBase); u.armR.rotation.z = -0.35; }
   // breathe + bow
   if (u.bowT > 0) { u.bowT -= dt; u.bow = Math.sin(Math.min(1, (2.4 - u.bowT) / 2.4) * Math.PI); } else u.bow = 0;
   u.body.rotation.x = -u.bow * 0.45;
@@ -1097,10 +1103,11 @@ function emote(kind) {
     flyTea(me, c.g); toast(`${c.name}님께 차 한잔을 건넸어요`);
     setTimeout(() => npcSay(c, '고맙소, 따뜻하구려', 4), 1400);
   } else {
-    const list = kind === 'poem' ? POEMS : kind === 'tea' ? TEA : BOW;
+    const list = kind === 'poem' ? POEMS : kind === 'tea' ? TEA : kind === 'wave' ? WAVE : BOW;
     i = Math.floor(Math.random() * list.length);
     say(me, list[i]);
     if (kind === 'bow') me.userData.bowT = 2.4;
+    if (kind === 'wave') me.userData.waveT = 2.8;
   }
   myEmote = { k: kind, i, n: ++emoteSeq, to };
   pushPresence(true);
@@ -1108,6 +1115,7 @@ function emote(kind) {
 }
 let myEmote = null;
 $('btnBow').onclick = () => emote('bow');
+$('btnWave').onclick = () => emote('wave');
 $('btnTea').onclick = () => emote('tea');
 $('btnPoem').onclick = () => emote('poem');
 $('kingOk').onclick = () => { $('king').hidden = true; };
@@ -1319,6 +1327,7 @@ function tickNpc(dt) {
   if (npcT > 0) return;
   npcT = 35 + Math.random() * 50;
   const c = npcPick(), r = Math.random();
+  if (S.bank === 'far' && r < 0.3) { c.g.userData.waveT = 2.8; npcSay(c, '어이— 건너편 양반!', 4); return; } // 건너가 있으면 이쪽에서 손을 흔들어 준다
   if (r < 0.32) npcSay(c, POEMS[Math.floor(Math.random() * POEMS.length)]);
   else if (r < 0.5 && S.fishing) npcTea(c, false);
   else if (r < 0.62 && on.length > 1) { const d = on.find(x => x !== c); npcSay(c, TEA_GIVE[0]); flyTea(c.g, d.g); setTimeout(() => npcSay(d, '고맙소, 따뜻하구려', 4), 1400); }
@@ -1336,6 +1345,7 @@ function npcOnRecord() {
 function npcReact(kind) {
   const c = npcPick(); if (!c || performance.now() < hurryUntil - 5000) return; // 방금 한마디 했으면 잠자코 있는다
   if (kind === 'bow') setTimeout(() => { c.g.userData.bowT = 2.4; npcSay(c, '(맞읍)', 3); }, 1100);
+  else if (kind === 'wave') npcOn().forEach((n, k) => setTimeout(() => { n.g.userData.waveT = 2.8; if (k === 0) npcSay(n, S.bank === 'far' ? '어이— 잘 보이오!' : '허허, 반갑소', 3); }, 900 + k * 500));
   else if (kind === 'poem' && Math.random() < 0.6) setTimeout(() => npcSay(c, NPC_REPLY_POEM[Math.floor(Math.random() * NPC_REPLY_POEM.length)], 4), 2600);
 }
 setNpcCount(NPCS.length);
@@ -1426,8 +1436,12 @@ function syncPeers(list) {
           setTimeout(() => { say(me, '(따뜻하다)'); sfx.call('clink', 0, 1); toast(`${giver}님이 차 한잔을 건넸어요`); }, 1300);
         } else { const r = others.get(em.to); if (r) flyTea(o.g, r.g); }
       } else if (!first) {
-        const list2 = em.k === 'poem' ? POEMS : em.k === 'tea' ? TEA : em.k === 'bow' ? BOW : null;
+        const list2 = em.k === 'poem' ? POEMS : em.k === 'tea' ? TEA : em.k === 'bow' ? BOW : em.k === 'wave' ? WAVE : null;
         if (list2 && Number.isInteger(em.i) && list2[em.i]) { say(o.g, list2[em.i]); if (em.k === 'bow') o.g.userData.bowT = 2.4; }
+        if (em.k === 'wave') {
+          o.g.userData.waveT = 2.8;
+          if (seat.bank !== S.bank) { toast(`강 건너에서 ${nm || nameFor(o.by, i)}님이 손을 흔들어요`); noteTitle('👋 강 건너에서 손을 흔들어요'); }
+        }
       }
     } else if (!em && o.lastEmote === null) o.lastEmote = { n: -1 };
   });
