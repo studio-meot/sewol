@@ -1099,16 +1099,24 @@ const FAUNA = [ // [종류, 둑, 구역 왼쪽, 오른쪽]
 FAUNA.forEach(a => {
   a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(0.85);
   a.x = rand(a.lo, a.hi); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(2, 12); a.t = Math.random() * 10; a.heading = 0;
+  if (Math.random() < 0.6) { a.g.visible = false; a.awayT = rand(20, 360); } // 처음부터 다 나와 있지 않는다
 });
 function updateFauna(dt) {
   for (const a of FAUNA) {
+    if (a.awayT > 0) { // 수풀 속에 있다가 다시 나온다
+      a.awayT -= dt; if (a.awayT > 0) continue;
+      a.g.visible = true; a.x = rand(a.lo, a.hi); a.z = 9.5; a.tx = a.x; a.tz = rand(2.5, 3.6); a.idle = 0;
+    }
     a.t += dt;
     const u = a.g.userData, dx = a.tx - a.x, dz = a.tz - a.z, dist = Math.hypot(dx, dz);
     let moving = false;
     if (a.idle > 0) {
       a.idle -= dt;
-      if (a.idle <= 0) { a.tx = Math.max(a.lo, Math.min(a.hi, a.x + rand(-9, 9))); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 제 구역 안 자리 뒤 길가
-    } else if (dist < 0.15) a.idle = a.kind === 'deer' ? rand(14, 32) : rand(9, 22); // 한참 풀을 뜯고 쉰다
+      if (a.idle <= 0) { a.tx = Math.max(a.lo, Math.min(a.hi, a.x + rand(-9, 9))); a.tz = rand(2.5, 3.6); if (Math.random() < 0.45) { a.tz = 9.5; a.leaving = true; } } // 다음 갈 곳: 길가 어딘가, 아니면 뒤편 수풀로
+    } else if (dist < 0.15) {
+      if (a.leaving) { a.leaving = false; a.g.visible = false; a.awayT = rand(240, 600); continue; }
+      a.idle = a.kind === 'deer' ? rand(14, 32) : rand(9, 22); // 한참 풀을 뜯고 쉰다
+    }
     else {
       moving = true;
       if (a.boostT > 0) a.boostT -= dt;
@@ -1144,7 +1152,7 @@ const turtle = new THREE.Group();
 }
 turtle.visible = false; scene.add(turtle);
 const TURTLE_SAY = ['저 거북이도 세월 낚는 중이오', '거북이는 나보다 오래 앉아 있었을 거요', '허허, 백 년 묵은 벗이 왔구려', '거북이야, 너는 몇 해째냐', '천천히 가는 놈이 제일 멀리 가오', '저 등껍질에 세월이 다 새겨져 있소'];
-let turtleRun = null, nextTurtle = new URLSearchParams(location.search).has('turtle') ? 3 : rand(40, 90); // ?turtle=1 이면 곧바로
+let turtleRun = null, nextTurtle = new URLSearchParams(location.search).has('turtle') ? 3 : rand(120, 240); // ?turtle=1 이면 곧바로
 // 눌러 보면 반응한다: 토끼, 노루, 거북이, 부캉이, 이웃 낚시꾼. 작은 짐승도 잘 눌리도록 화면에서 가까운 것을 고른다
 const RABBIT_SAY = ['(깡총!)', '(코를 씰룩)', '(귀가 쫑긋)', '(…당근?)', '(화들짝)'];
 const RABBIT_TOAST = ['토끼가 깜짝 놀라 세 번 뛰었어요', '토끼가 당신을 한참 쳐다보다 갔어요', '토끼도 세월은 안 무나 봐요', '토끼가 삿갓을 커다란 버섯으로 착각했어요'];
@@ -1153,7 +1161,7 @@ const DEER_TOAST = ['노루가 고개를 꾸벅 숙였어요. 읍을 배웠나 �
 const pickV = new THREE.Vector3();
 function pickAt(cx, cy) {
   const rect = renderer.domElement.getBoundingClientRect(), cands = [];
-  FAUNA.forEach(a => cands.push({ obj: a.g, y: a.kind === 'deer' ? 1.1 : 0.3, r: a.kind === 'deer' ? 70 : 52, hit: () => pokeFauna(a) }));
+  FAUNA.forEach(a => a.g.visible && cands.push({ obj: a.g, y: a.kind === 'deer' ? 1.1 : 0.3, r: a.kind === 'deer' ? 70 : 52, hit: () => pokeFauna(a) }));
   if (turtle.visible) cands.push({ obj: turtle, y: 0.1, r: 60, hit: pokeTurtle });
   if (shark.visible) cands.push({ obj: shark, y: 0.4, r: 80, hit: () => toast('…건드리지 마세요. 못 본 걸로 하기로 했잖아요') });
   NPCS.forEach(c => { if (c.on) cands.push({ obj: c.g, y: 1.4, r: 60, hit: () => { npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)], 5, true); if (Math.random() < 0.3) c.g.userData.bowT = 2.4; } }); });
@@ -1196,7 +1204,7 @@ function updateTurtle(dt) {
   if (!turtleRun) {
     nextTurtle -= dt;
     if (nextTurtle <= 0) {
-      nextTurtle = rand(70, 160);
+      nextTurtle = rand(240, 480);
       turtleRun = { t: 0, dur: rand(14, 22), x: rand(-44, 44), z: rand(-37, -6), dir: Math.random() * Math.PI * 2, rip: 0, said: false };
       turtle.visible = true;
     }
@@ -1430,7 +1438,7 @@ function makeCrane() {
   g.userData = { neck, legs, wings }; g.visible = false; scene.add(g); return g;
 }
 const crane = makeCrane();
-let craneRun = null, nextCrane = BLESS_Q.has('crane') ? 4 : rand(150, 300);
+let craneRun = null, nextCrane = BLESS_Q.has('crane') ? 4 : rand(300, 600);
 function startCrane() {
   const f = FLIP(), side = Math.random() < 0.5 ? 1 : -1, land = Math.random() < 0.55 || BLESS_Q.get('crane') === 'land';
   const gx = me.position.x + (Math.random() < 0.5 ? 1 : -1) * rand(4, 10), gz = me.position.z - f * rand(11, 16); // 내 몸에 가리지 않게 옆으로 비켜 앉는다
@@ -1441,7 +1449,7 @@ function startCrane() {
 }
 function flap(u, k, amp) { u.wings.forEach(w => { w.scale.z = 1; w.rotation.x = w.userData.sd * Math.sin(k) * amp; }); }
 function updateCrane(dt) {
-  if (!craneRun) { nextCrane -= dt; if (nextCrane <= 0) { nextCrane = rand(240, 480); startCrane(); } return; }
+  if (!craneRun) { nextCrane -= dt; if (nextCrane <= 0) { nextCrane = rand(600, 1100); startCrane(); } return; }
   const r = craneRun, u = crane.userData; r.t += dt;
   if (r.t > 2 && !r.met) { r.met = true; meetLong('鶴'); }
   if (r.mode === 'fly') {
@@ -1497,7 +1505,7 @@ function makeMagpie() {
 const magpie = makeMagpie();
 // 물가 큰 버드나무의 가지 끝들. 이쪽 둑 뒤편 나무는 카메라 뒤라 잘 안 보인다
 const WILLOW_PERCHES = [{ x: -5.2, z: 0.9, top: 4.7, bare: 4.3 }, { x: -9, z: 1.2, top: 4.6, bare: 4.2 }, { x: -7.1, z: 0.9, top: 5.9, bare: 4.4 }];
-let magRun = null, nextMag = BLESS_Q.has('magpie') ? 3 : rand(45, 100);
+let magRun = null, nextMag = BLESS_Q.has('magpie') ? 3 : rand(120, 300);
 function magpieSoon() { if (!magRun) nextMag = Math.min(nextMag, 2.5); }
 function startMagpie() {
   const yOf = p => curSeason === 3 ? p.bare : p.top;
@@ -1513,7 +1521,7 @@ function startMagpie() {
   magpie.visible = true; magpie.scale.setScalar(Math.min(4.5, 2 * Math.max(1, pick.d / 16)));
 }
 function updateMagpie(dt) {
-  if (!magRun) { nextMag -= dt; if (nextMag <= 0) { nextMag = rand(150, 320); startMagpie(); } return; }
+  if (!magRun) { nextMag -= dt; if (nextMag <= 0) { nextMag = rand(360, 720); startMagpie(); } return; }
   const r = magRun, u = magpie.userData; r.t += dt;
   const face = v => { magpie.rotation.y = Math.atan2(-v.z, v.x); };
   if (r.stage === 'in') {
@@ -1583,7 +1591,7 @@ function updateWild(dt) {
   updateVisit(dt);
   updateBless(dt);
   nextFlock -= dt;
-  if (nextFlock <= 0) { nextFlock = rand(20, 45); if (flocks.length < 2) spawnFlock(); }
+  if (nextFlock <= 0) { nextFlock = rand(45, 100); if (flocks.length < 2) spawnFlock(); }
   for (let i = flocks.length - 1; i >= 0; i--) {
     const f = flocks[i], k = f.kind;
     f.t += dt; f.x += f.dir * k.speed * dt; f.z += f.drift * dt;
@@ -2214,7 +2222,7 @@ NPCS.forEach((c, i) => {
   c.idle = rand(2, 6); c.mode = 'stroll'; c.q = []; c.t = Math.random() * 10; c.head = 0;
 });
 const GUIDE = NPCS[0];
-const elderNear = c => c.bank === S.bank && Math.abs(c.x - mySeat().x) < 16;
+const elderNear = c => c.on && c.bank === S.bank && Math.abs(c.x - mySeat().x) < 16;
 const npcOn = () => NPCS.filter(elderNear);
 const npcPick = () => { const l = npcOn(); return l.length ? l[Math.floor(Math.random() * l.length)] : null; };
 const npcSay = (c, text, sec = 6, force) => { if (!c || (!force && c.hush > performance.now())) return; if (force || elderNear(c)) say(c.g, text, sec); };
@@ -2222,6 +2230,7 @@ const npcSay = (c, text, sec = 6, force) => { if (!c || (!force && c.hush > perf
 function npcCall(fn) {
   if (GUIDE.q.length >= 3) return;
   GUIDE.q.push(fn);
+  if (!GUIDE.on) { GUIDE.on = true; GUIDE.away = 0; GUIDE.g.visible = true; GUIDE.tag.hidden = false; GUIDE.bank = S.bank; GUIDE.x = mySeat().x + (Math.random() < 0.5 ? -1 : 1) * 15; }
   if (GUIDE.bank !== S.bank) { GUIDE.bank = S.bank; GUIDE.x = mySeat().x + (Math.random() < 0.5 ? -1 : 1) * 24; } // 강 건너에 있었으면 조용히 이쪽 길 끝에서 걸어온다
   if (GUIDE.mode !== 'come') { GUIDE.mode = 'come'; GUIDE.idle = 0; }
 }
@@ -2229,6 +2238,10 @@ function elderCross() { if (GUIDE.bank !== S.bank && tutStep < 8) { GUIDE.bank =
 function updateElders(dt) {
   const mx = mySeat().x;
   for (const c of NPCS) {
+    if (!c.on) {
+      c.away -= dt; if (c.away > 0) continue;
+      c.on = true; c.g.visible = true; c.tag.hidden = false; c.x = (Math.random() < 0.5 ? -1 : 1) * 56; c.mode = 'stroll'; c.rest = true; c.idle = 0; c.tx = rand(-40, 40);
+    }
     c.t += dt;
     c.z += ((c.mode === 'come' ? mySeat().z + 0.25 : 2.6) - c.z) * Math.min(1, dt * 0.8); // 곁에 올 땐 나란히 선다
     if (c.mode === 'come') { c.tx = mx + (c.x >= mx ? 2.3 : -2.3); if (Math.abs(c.x - mx) > 18) c.x = mx + Math.sign(c.x - mx) * 15; } // 멀리 있으면 화면 밖에서 가까이 와서 걸어 들어온다
@@ -2243,10 +2256,12 @@ function updateElders(dt) {
       c.head = (c.visitX > c.x ? -1 : 1) * 0.9; c.g.userData.bowT = 2.4;
       if (c.bank === S.bank) npcSay(c, ELDER_HELLO[Math.floor(Math.random() * ELDER_HELLO.length)], 4, true);
       c.mode = 'stroll'; c.idle = rand(5, 9);
-    } else if (!c.rest) { c.rest = true; c.head = Math.random() < 0.6 ? 0 : c.head; c.idle = rand(6, 16); } // 멈춰 서서 강을 본다
+    } else if (c.mode === 'leave') { c.on = false; c.g.visible = false; c.tag.hidden = true; c.away = rand(300, 720); c.mode = 'stroll'; continue; }
+    else if (!c.rest) { c.rest = true; c.head = Math.random() < 0.6 ? 0 : c.head; c.idle = rand(6, 16); } // 멈춰 서서 강을 본다
     else { // 다음 갈 곳
       c.rest = false;
       if (c.guide && c.q.length) { c.mode = 'come'; continue; }
+      if (!(c.guide && tutStep < 8) && Math.random() < 0.45) { c.mode = 'leave'; c.tx = (c.bank === S.bank ? c.x >= mx : c.x >= 0) ? 58 : -58; continue; } // 길 끝으로 걸어 나간다
       const peers = [...others.values()].filter(o => o.bank === c.bank && o.seatX != null);
       if (peers.length && Math.random() < 0.3) { const o = peers[Math.floor(Math.random() * peers.length)]; c.mode = 'visit'; c.visitX = o.seatX; c.tx = o.seatX + (Math.random() < 0.5 ? -1.6 : 1.6); }
       else if (c.guide && tutStep < 8) c.tx = mx + (Math.random() < 0.5 ? -1 : 1) * rand(6, 10); // 처음 온 사람 곁을 맴돈다
@@ -2306,7 +2321,7 @@ function tickNpc(dt) {
   }
   npcT -= dt * (document.body.classList.contains('still') ? 0.5 : 1);
   if (npcT > 0) return;
-  npcT = 60 + Math.random() * 70;
+  npcT = 150 + Math.random() * 150;
   const c = npcPick();
   if (!c) { const far = NPCS.find(n => n.bank !== S.bank && Math.abs(n.g.position.x - me.position.x) < 20); if (far && Math.random() < 0.5) { far.g.userData.waveT = 2.8; say(far.g, '어이—', 3); } return; } // 강 건너에서 손을 흔들어 준다
   const r = Math.random(), mine = c.lines;
