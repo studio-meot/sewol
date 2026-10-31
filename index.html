@@ -2169,13 +2169,9 @@ const sfx = (() => {
     call(kind, pan, vol) { if (on && CALLS[kind]) CALLS[kind](pan, vol); },
     splash(vol, pan) {
       if (!ctx || !on) return;
-      const t = ctx.currentTime, src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
-      // 물이 부드럽게 갈라지는 쏴- 와, 뒤따라 떨어지는 물방울 몇 개
-      src.buffer = noise; f.type = 'lowpass'; f.frequency.setValueAtTime(1300, t); f.frequency.exponentialRampToValueAtTime(380, t + 0.6); f.Q.value = 0.4;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol * 0.42, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.65);
-      src.connect(f); f.connect(g); out(g, pan); src.start(t, Math.random() * 0.3); src.stop(t + 0.7);
+      // 작은 물방울 몇 개만 똑, 또독
       const n = 2 + rnd(3);
-      for (let i = 0; i < n; i++) { const d = 900 + Math.random() * 700; voice({ f0: d, f1: d * 1.6, dur: 0.05, vol: vol * 0.05, at: 0.12 + i * (0.08 + Math.random() * 0.12), att: 0.004, pan }); }
+      for (let i = 0; i < n; i++) { const d = 900 + Math.random() * 700; voice({ f0: d, f1: d * 1.6, dur: 0.05, vol: vol * 0.12, at: i * (0.08 + Math.random() * 0.12), att: 0.004, pan }); }
     },
     // 버드나무 쪽에서 들려오는 새소리. 봄·여름엔 지저귐, 가을엔 드문드문, 겨울엔 멀리서 까마귀
     tick(dt) {
