@@ -427,6 +427,118 @@ const ridges = [ridge(-140, 34, 6, 1.3, '#9b7f7a'), ridge(-95, 22, 3, 4.1, '#7d6
 ridges.push(ridge(80, 16, 2, 3.3, '#6a5c58'), ridge(125, 30, 5, 5.7, '#8c7470'));
 ridges[3].material.side = ridges[4].material.side = THREE.DoubleSide;
 const RIDGE_C = ['#9b7f7a', '#7d6b67', '#5c5450', '#6a5c58', '#8c7470'];
+
+/* ---------------- 산: 안개, 계절, 능선의 소나무와 정자, 물에 비친 그림자 ---------------- */
+const RIDGE_P = [[-140, 34, 6, 1.3], [-95, 22, 3, 4.1], [-60, 12, 1, 2.2], [80, 16, 2, 3.3], [125, 30, 5, 5.7]];
+const ridgeTop = (i, x) => { const [, h, base, seed] = RIDGE_P[i]; return Math.max(0, base + h * (0.55 + 0.45 * Math.sin(x * 0.021 + seed) * Math.sin(x * 0.007 + seed * 2.3) + 0.18 * Math.sin(x * 0.09 + seed * 5))); };
+// 계절마다 산이 머금는 빛: 봄 분홍빛, 여름 초록, 가을 붉은 녹, 겨울 푸른 잿빛
+const RIDGE_TINT = ['#b08a94', '#6f8a6a', '#a8603e', '#8a94a8'];
+const cTint = new THREE.Color();
+function vGradTex(stops) {
+  const c = document.createElement('canvas'); c.width = 4; c.height = 128; const g = c.getContext('2d');
+  const gr = g.createLinearGradient(0, 0, 0, 128); stops.forEach(([p, a]) => gr.addColorStop(p, `rgba(255,255,255,${a})`));
+  g.fillStyle = gr; g.fillRect(0, 0, 4, 128); return new THREE.CanvasTexture(c);
+}
+// 1) 산과 산 사이의 안개 띠. 먼 산일수록 하늘에 묻힌다
+const mistTex = vGradTex([[0, 0], [0.45, 1], [0.75, 0.7], [1, 0]]);
+const mists = [[-72, 4, 12], [-112, 7, 18], [-150, 12, 24]].map(([z, y, h]) => {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(560, h), new THREE.MeshBasicMaterial({ map: mistTex, transparent: true, depthWrite: false, fog: false, opacity: 0.5 }));
+  m.position.set(0, y, z); scene.add(m); return m;
+});
+// 2) 산자락의 잎 무리: 봄 산벚, 여름 초록, 가을 단풍. 겨울엔 진다. 겨울 봉우리엔 눈
+const FOLIAGE = [['#f2c4cf', '#e9b0c0', '#f7dbe2', '#eac0c8'], ['#5d7d4a', '#6b8f52', '#4f6e40', '#76955a'], ['#c0522e', '#d9862f', '#b9372a', '#e0a43a'], null];
+const foliage = [];
+const leafTex = radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
+[[2, 260], [1, 200]].forEach(([ri, n]) => {
+  const z = RIDGE_P[ri][0];
+  for (let k = 0; k < n; k++) {
+    const x = (Math.random() - 0.5) * 300, top = ridgeTop(ri, x); if (top < 2) continue;
+    const r = (ri === 2 ? 0.7 : 1.1) + Math.random() * (ri === 2 ? 1.0 : 1.4);
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 10), new THREE.MeshBasicMaterial({ color: '#fff', map: leafTex, transparent: true, depthWrite: false, opacity: 0.8 }));
+    m.position.set(x, top * (0.12 + Math.pow(Math.random(), 1.4) * 0.7), z + 0.3 + k * 0.002); m.scale.y = 0.65; scene.add(m);
+    foliage.push({ m, ri, pick: Math.floor(Math.random() * 4) });
+  }
+});
+const snowMat = new THREE.MeshBasicMaterial({ color: '#f2f4f8' });
+const snowCaps = [0, 1, 2, 3, 4].map(ri => {
+  const [z] = RIDGE_P[ri]; let mx = 0; for (let x = -260; x <= 260; x += 4) mx = Math.max(mx, ridgeTop(ri, x));
+  const thr = mx * 0.62, pos = [];
+  for (let x = -260; x < 260; x += 4) {
+    const y0 = ridgeTop(ri, x), y1 = ridgeTop(ri, x + 4);
+    const d0 = Math.max(0, (y0 - thr) * 0.75), d1 = Math.max(0, (y1 - thr) * 0.75);
+    if (!d0 && !d1) continue;
+    pos.push(x, y0, 0, x, y0 - d0, 0, x + 4, y1, 0, x + 4, y1, 0, x, y0 - d0, 0, x + 4, y1 - d1, 0);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  const m = new THREE.Mesh(g, snowMat); m.position.z = z + (z < 0 ? 0.2 : -0.2); m.visible = false; scene.add(m); return m;
+});
+// 3) 능선의 소나무 실루엣, 먼 봉우리의 정자와 등불, 산허리를 감는 구름
+const ridgePineMats = [new THREE.MeshBasicMaterial({ color: '#2f3a30' }), new THREE.MeshBasicMaterial({ color: '#3d4640' })];
+[[2, 0], [1, 1]].forEach(([ri, mi]) => {
+  const z = RIDGE_P[ri][0], sc = ri === 2 ? 1 : 1.5;
+  for (let x = -130; x < 130; x += 3 + Math.random() * 9) {
+    const top = ridgeTop(ri, x); if (top < 3) continue;
+    const h = (1.1 + Math.random() * 1.3) * sc, c = new THREE.Mesh(new THREE.ConeGeometry(h * 0.32, h, 5), ridgePineMats[mi]);
+    c.position.set(x, top + h * 0.38, z + 0.15); scene.add(c);
+  }
+});
+const pavilion = new THREE.Group();
+let lantern;
+{
+  let px = 0, best = -1; for (let x = -34; x <= 34; x += 1) { const y = ridgeTop(1, x); if (y > best) { best = y; px = x; } }
+  const m = new THREE.MeshBasicMaterial({ color: '#3a3330' });
+  const base = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.4, 2.4), m); base.position.y = 0.2; pavilion.add(base);
+  [[-1.4, -0.9], [1.4, -0.9], [-1.4, 0.9], [1.4, 0.9]].forEach(([x, z]) => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.8, 0.18), m); p.position.set(x, 1.3, z); pavilion.add(p); });
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(2.9, 1.3, 4), m); roof.rotation.y = Math.PI / 4; roof.scale.z = 0.75; roof.position.y = 2.75; pavilion.add(roof);
+  const tip = new THREE.Mesh(new THREE.SphereGeometry(0.16, 6, 4), m); tip.position.y = 3.45; pavilion.add(tip);
+  lantern = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTex('rgba(255,214,140,1)', 'rgba(255,170,80,0)'), transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+  lantern.scale.set(4.2, 4.2, 1); lantern.position.set(0, 1.4, 0); pavilion.add(lantern);
+  pavilion.scale.setScalar(1.25); pavilion.position.set(px, best - 0.4, RIDGE_P[1][0] + 0.4); scene.add(pavilion);
+}
+const cloudTex = radialTex('rgba(255,255,255,0.9)', 'rgba(255,255,255,0)');
+const clouds = Array.from({ length: 6 }, (_, i) => {
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.35 }));
+  sp.scale.set(30 + Math.random() * 20, 5 + Math.random() * 3, 1);
+  sp.position.set(-140 + i * 50 + Math.random() * 20, 9 + Math.random() * 9, -88 - Math.random() * 30); sp.userData.v = 0.5 + Math.random() * 0.6;
+  scene.add(sp); return sp;
+});
+// 4) 강물에 비친 산 그림자: 건너편 모래톱 앞 수면에 능선을 거꾸로 그려 둔다
+const reflCanvas = document.createElement('canvas'); reflCanvas.width = 512; reflCanvas.height = 128;
+{
+  const g = reflCanvas.getContext('2d');
+  for (let px = 0; px < 512; px++) {
+    const x = -130 + px / 512 * 260, H = Math.max(ridgeTop(2, x), ridgeTop(1, x) * 0.7 + 2, ridgeTop(0, x) * 0.5 + 4);
+    const len = Math.min(128, H * 5.2), gr = g.createLinearGradient(0, 0, 0, len);
+    gr.addColorStop(0, 'rgba(255,255,255,0.75)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(px, 0, 1, len);
+  }
+}
+const reflTex = new THREE.CanvasTexture(reflCanvas);
+const refl = new THREE.Mesh(new THREE.PlaneGeometry(260, 24), new THREE.MeshBasicMaterial({ map: reflTex, transparent: true, depthWrite: false, opacity: 0.4, color: '#4a3f3c' }));
+refl.rotation.x = -Math.PI / 2; refl.position.set(0, 0.13, -29); scene.add(refl);
+
+function mountainSeason(s) {
+  foliage.forEach(f => { const pal = FOLIAGE[s]; f.m.visible = !!pal; if (pal) f.base = pal[f.pick]; });
+  snowCaps.forEach(m => m.visible = s === 3);
+}
+function mountainLook(L, w, br, s) {
+  const mistA = w[0] * 0.35 + w[1] * 0.85 + w[2] * 0.3 + w[3] * 0.5;
+  mists.forEach((m, i) => { m.material.color.set(L.fog).lerp(cTint.set('#ffffff'), 0.18 * (1 - w[0])); m.material.opacity = mistA * (0.7 + i * 0.15); });
+  foliage.forEach(f => { if (f.base) f.m.material.color.set(f.base).multiplyScalar(br).lerp(cTint.set(L.fog), f.ri === 1 ? 0.4 : 0.22); });
+  snowMat.color.set('#f2f4f8').multiplyScalar(0.55 + 0.45 * br);
+  ridgePineMats[0].color.set('#2f3a30').multiplyScalar(br).lerp(cTint.set(L.fog), 0.15);
+  ridgePineMats[1].color.set('#3d4640').multiplyScalar(br).lerp(cTint.set(L.fog), 0.35);
+  pavilion.children.forEach(c => { if (c.material && c !== lantern) c.material.color.set('#3a3330').multiplyScalar(br).lerp(cTint.set(L.fog), 0.3); });
+  lantern.material.opacity = Math.min(1, w[0] * 0.95 + w[3] * 0.45 + w[1] * 0.3);
+  clouds.forEach(c => { c.material.color.set('#ffffff').lerp(cTint.set(L.low), 0.4).multiplyScalar(0.6 + 0.4 * br); c.material.opacity = 0.18 + 0.2 * (1 - w[0]); });
+  refl.material.color.set(RIDGE_C[2]).multiplyScalar(br * 0.75).lerp(cTint.set(RIDGE_TINT[s]), 0.2);
+}
+function updateMountains(dt) {
+  clouds.forEach(c => { c.position.x += c.userData.v * dt; if (c.position.x > 160) c.position.x = -160; });
+  refl.material.opacity = 0.36 + Math.sin(t * 0.7) * 0.04;
+  reflTex.offset.x = Math.sin(t * 0.4) * 0.002;
+  lantern.scale.setScalar(4.2 + Math.sin(t * 2.3) * 0.25);
+}
 // far shore
 const farShore = new THREE.Mesh(new THREE.BoxGeometry(520, 1.2, 14), lam('#6b6048')); farShore.position.set(0, 0, -48); scene.add(farShore);
 
@@ -1053,6 +1165,7 @@ function updateTurtle(dt) {
 }
 
 function updateWild(dt) {
+  updateMountains(dt);
   updateDeer(dt);
   updateFauna(dt);
   updateTurtle(dt);
@@ -1281,11 +1394,12 @@ function applyLook() {
   ground.material.color.set(p.ground).multiplyScalar(br); strandMat.color.set(p.leaf).multiplyScalar(br); crown.material.color.set(p.leaf).multiplyScalar(br);
   leafCrowns.forEach(m => m.color.set(p.leaf).multiplyScalar(br)); pineMat.color.set('#3f5a3a').multiplyScalar(br);
   water.material.color.set(L.water); water.material.specular.set(night > 0.5 ? '#6f7fa8' : '#ffcf8a');
-  ridges.forEach((r, i) => { cA.set(RIDGE_C[i]).multiplyScalar(br); cB.set(L.fog); r.material.color.copy(cA.lerp(cB, s === 3 ? Math.max(0.1, 0.3 - i * 0.08) : 0.15 + 0.12 * w[2])); });
+  ridges.forEach((r, i) => { cA.set(RIDGE_C[i]).lerp(cTint.set(RIDGE_TINT[s]), 0.22).multiplyScalar(br); cB.set(L.fog); r.material.color.copy(cA.lerp(cB, s === 3 ? Math.max(0.1, 0.3 - i * 0.08) : 0.15 + 0.12 * w[2])); });
   hemi.intensity = 0.85 * br; fill.intensity = 0.25 + night * 0.2;
   sunLight.intensity = 1.05 * (1 - night * 0.7) * (1 - 0.55 * wK);
   sunLight.color.set(night > 0.5 ? '#9fb3ff' : w[2] > 0.5 ? '#fff0d6' : '#ffc07a');
   sun.position.y = 9 + w[2] * 22 + w[1] * 2; sun.material.opacity = (1 - night) * (1 - 0.85 * wK);
+  mountainLook(L, w, br, s);
   moon.material.opacity = night * (1 - 0.9 * wK); stars.material.opacity = night * 0.95 * (1 - wK);
   const tod = w.reduce((a, v, i) => v > w[a] ? i : a, 0);
   if (tod !== curTod) { curTod = tod; updateClock(); }
@@ -1294,6 +1408,7 @@ function applySeason(s) {
   if (s === curSeason) return; curSeason = s;
   crown.visible = s !== 3; bareCrowns.forEach(c => c.visible = s !== 3); strands.forEach(st => st.scale.y = s === 3 ? 0.35 : 1);
   const st = P_STYLE[s]; pMat.color.set(st.color); pMat.size = st.size; pMat.blending = st.blend; pMat.needsUpdate = true;
+  mountainSeason(s);
   applyLook();
   updateClock();
 }
