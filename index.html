@@ -1518,7 +1518,7 @@ function startMagpie() {
   const p = pick.p;
   const y = yOf(p), side = Math.random() < 0.5 ? 1 : -1;
   magRun = { t: 0, stage: 'in', perch: new THREE.Vector3(p.x, y, p.z), from: new THREE.Vector3(p.x + side * 26, y + 7, p.z + rand(-6, 6)), side, sit: rand(9, 15), calls: [rand(0.6, 1.5), rand(4, 6), rand(7.5, 9)] };
-  magpie.visible = true; magpie.scale.setScalar(Math.min(4.5, 2 * Math.max(1, pick.d / 16)));
+  magpie.visible = true; magpie.scale.setScalar(Math.min(1.5, 0.85 * Math.max(1, pick.d / 28))); // 진짜 까치만 하게
 }
 function updateMagpie(dt) {
   if (!magRun) { nextMag -= dt; if (nextMag <= 0) { nextMag = rand(360, 720); startMagpie(); } return; }
@@ -1527,10 +1527,10 @@ function updateMagpie(dt) {
   if (r.stage === 'in') {
     const k = Math.min(1, r.t / 3.6), e = 1 - Math.pow(1 - k, 2);
     magpie.position.lerpVectors(r.from, r.perch, e); magpie.position.y += Math.sin(k * Math.PI) * 1.2;
-    face(tmpV.subVectors(r.perch, r.from)); u.wings.forEach(w => { w.rotation.x = w.userData.sd * Math.sin(r.t * 22) * 0.8; });
+    face(tmpV.subVectors(r.perch, r.from)); u.wings.forEach(w => { w.scale.z = 1; w.rotation.x = w.userData.sd * Math.sin(r.t * 22) * 0.8; });
     if (k >= 1) { r.stage = 'sit'; r.t = 0; magpie.rotation.y = r.side > 0 ? 0 : Math.PI; }
   } else if (r.stage === 'sit') {
-    magpie.position.copy(r.perch); u.wings.forEach(w => { w.rotation.x = w.userData.sd * 0.15; });
+    magpie.position.copy(r.perch); u.wings.forEach(w => { w.scale.z = 0.3; w.rotation.x = w.userData.sd * 0.6; }); // 날개는 접고
     u.tail.rotation.z = Math.sin(r.t * 5) > 0.8 ? 0.35 : 0.08; // 꽁지를 까딱
     if (Math.sin(r.t * 1.3) > 0.97) magpie.rotation.y += Math.PI * 0.5 * dt * 20; // 두리번
     r.calls.forEach((c, i) => { if (c > 0 && r.t >= c) { r.calls[i] = -1; const pan = Math.max(-1, Math.min(1, (r.perch.x - me.position.x) / 20)); sfx.call('magpie', pan, Math.max(0.4, 1 - Math.abs(r.perch.x - me.position.x) / 40)); say(magpie, '깍깍', 1.6); } });
@@ -1538,7 +1538,7 @@ function updateMagpie(dt) {
   } else {
     const k = Math.min(1, r.t / 3.2);
     magpie.position.lerpVectors(r.perch, r.to, k * k); face(tmpV.subVectors(r.to, r.perch));
-    u.wings.forEach(w => { w.rotation.x = w.userData.sd * Math.sin(r.t * 22) * 0.8; });
+    u.wings.forEach(w => { w.scale.z = 1; w.rotation.x = w.userData.sd * Math.sin(r.t * 22) * 0.8; });
     if (k >= 1) { magpie.visible = false; magRun = null; }
   }
 }
