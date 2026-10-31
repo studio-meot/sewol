@@ -806,16 +806,23 @@ function seatOn(obj, x, z, bank, scale) {
   else { obj.position.set(x, 0.25, z); obj.rotation.y = -x * 0.012; }
   obj.scale.setScalar(scale || 1);
 }
-const placeMe = () => seatOn(me, 0, 1.1, S.bank);
-placeMe();
-
-// spots for others along the bank
-// 세월을 낚는 사람들은 서로 거리를 둔다. 버드나무(x≈-7.6) 둘레는 비워 둔다
-const SPOTS = [[4.8, 0.7], [-4.8, 0.9], [10.6, 1.2], [-11.4, 1.4], [16.2, 0.8], [-16.8, 1.1], [21.8, 1.3], [-22.4, 0.9], [27.4, 1.0], [-28, 1.4], [33, 0.8], [-33.6, 1.2], [38.6, 1.1], [-39.2, 0.9]];
-// 이쪽 둑이 차면 건너편 둑에 우리를 마주 보고 앉는다
-const FAR_X = Array.from({ length: 16 }, (_, i) => (i % 2 ? -1 : 1) * (4.8 + Math.floor(i / 2) * 6.2));
-const NEAR_SEATS = SPOTS.map(([x, z]) => ({ bank: 'near', x, z }));
+// 자리: 세월을 낚는 사람들은 서로 거리를 둔다. 뒤에 선 나무가 시야를 가리지 않게 나무와 솟대 앞은 비워 둔다
+// 건너편 자리도 이쪽 기준 좌표로 둔다(seatOn이 강 건너로 뒤집어 놓는다)
+const NEAR_X = [-41, -30.6, -25, -13.6, 1, 6.6, 12.2, 25.4, 31, 40.4];
+const FAR_X = [-47, -41.4, -28.6, -23, -12.6, -7, -1.4, 4.2, 9.8, 19.6, 25.4, 36.4, 42, 47.6];
+const NEAR_SEATS = NEAR_X.map((x, i) => ({ bank: 'near', x, z: 0.7 + (i * 37 % 8) / 10 }));
 const FAR_SEATS = FAR_X.map(x => ({ bank: 'far', x, z: 1.1 }));
+const seatsOf = bank => bank === 'far' ? FAR_SEATS : NEAR_SEATS;
+// 내 자리. 들어올 때 빈자리 가운데 하나에 저절로 앉는다. 남들도 이 번호를 보고 같은 자리에 나를 그린다
+function pickMySeat(taken) {
+  const L = seatsOf(S.bank), free = L.map((_, i) => i).filter(i => !taken || !taken.has(S.bank + ':' + i));
+  const pool = free.length ? free : L.map((_, i) => i);
+  S.seatIdx = pool[Math.floor(Math.random() * pool.length)]; S.seatAt = Date.now();
+}
+const mySeat = () => seatsOf(S.bank)[S.seatIdx] || seatsOf(S.bank)[0];
+pickMySeat();
+function placeMe() { const st = mySeat(); seatOn(me, st.x, st.z, S.bank); particles.position.x = me.position.x; }
+placeMe();
 const ROBES = ['#8a6b8f', '#5f7f63', '#9a6a52', '#56708f', '#8f8352', '#7a5a6a', '#4f6f74', '#a0705a', '#6a6a8a', '#7f8f5a'];
 function hash(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 
@@ -875,7 +882,7 @@ function spawnFlock() {
     b.rotation.y = dir > 0 ? 0 : Math.PI;
     scene.add(b); birds.push(b);
   }
-  flocks.push({ kind, dir, x: -dir * rand(38, 46), y: rand(kind.y[0], kind.y[1]), z: rand(-32, -7), birds, t: 0, callT: rand(0.3, 1.5), drift: rand(-0.5, 0.5) });
+  flocks.push({ kind, dir, ox: me.position.x, x: me.position.x - dir * rand(38, 46), y: rand(kind.y[0], kind.y[1]), z: rand(-32, -7), birds, t: 0, callT: rand(0.3, 1.5), drift: rand(-0.5, 0.5) });
 }
 
 // 멀리서도 가까이서도 한 번씩 튀어오르는 물고기
@@ -905,7 +912,7 @@ function splashSound(l, k) { sfx.splash(l.far ? 0.12 * k : 0.35 * k, l.x / 25); 
 function startLeap() {
   const L = leapers.find(l => !l.visible); if (!L) return;
   const far = Math.random() < 0.65;
-  const x = far ? rand(-34, 34) : rand(-7, 7), z = far ? rand(-40, -13) : rand(-9, -3.5);
+  const x = me.position.x + (far ? rand(-34, 34) : rand(-7, 7)), z = far ? rand(-40, -13) : me.position.z - FLIP() * rand(3.5, 9);
   const sc = far ? 1.8 : 1.1, ang = Math.random() * Math.PI * 2;
   L.visible = true; L.scale.setScalar(sc); L.rotation.set(0, ang, 0);
   const l = { L, x, z, ang, far, sc, t: 0, dur: rand(0.75, 1.05), h: rand(0.7, 1.3) * sc, run: rand(1, 1.8) * sc };
@@ -1004,12 +1011,18 @@ function makeWalker(w) {
     [1.5, 1.72].forEach(y => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.85, 6), lam('#8a6a44')); l.rotation.z = Math.PI / 2; l.position.set(0, y, 0.52); fr.add(l); });
     g.userData.body.add(fr);
   }
+  if (w.herb) { // 지팡이와 망태
+    const staff = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.045, 1.9, 5), lam('#6b4a2c')); staff.position.set(0.5, 0.95, -0.1); staff.rotation.z = -0.08; g.add(staff);
+    const bag = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.2, 0.5, 7, 1, true), lam('#9a8a5a')); bag.material.side = THREE.DoubleSide; bag.position.set(0, 1.25, 0.46); g.userData.body.add(bag);
+    const herbs = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.3, 6), lam('#6f8a4a')); herbs.position.set(0, 1.55, 0.46); g.userData.body.add(herbs);
+  }
   if (w.young) g.scale.setScalar(0.62);
   scene.add(g); return g;
 }
 function startVisit(kind) {
   const v = VISITS[kind]; if (!v || visit) return;
-  visit = { v, phase: 'in', t: 0, step: 0, m: v.who.map((w, i) => ({ g: makeWalker(w), x: -18 - i * 1.4, z: 2.7 + i * 0.55, stopX: -2.4 - i * 1.3 })) };
+  const mx = mySeat().x;
+  visit = { v, mx, phase: 'in', t: 0, step: 0, m: v.who.map((w, i) => ({ g: makeWalker(w), x: mx - 18 - i * 1.4, z: 2.7 + i * 0.55, stopX: mx - 2.4 - i * 1.3 })) };
 }
 function updateVisit(dt) {
   if (!visit) return;
@@ -1021,7 +1034,7 @@ function updateVisit(dt) {
     if (V.phase === 'out') { m.x += 1.9 * dt; walking = true; }
     if (m.x < m.stopX) arrived = false;
     const bob = walking ? Math.abs(Math.sin(V.t * 6 + m.z)) * 0.06 : 0;
-    const face = walking ? -Math.PI / 2 : Math.atan2(m.x, -(1.1 - m.z));
+    const face = walking ? -Math.PI / 2 : Math.atan2(m.x - V.mx, -(1.1 - m.z));
     if (S.bank === 'far') { m.g.position.set(-m.x, 0.6 + bob, -42.3 - (m.z - 1.1)); m.g.rotation.y = face + Math.PI; }
     else { m.g.position.set(m.x, 0.25 + bob, m.z); m.g.rotation.y = face; }
     updateAngler(m.g, t, dt);
@@ -1032,7 +1045,7 @@ function updateVisit(dt) {
     if (V.step < V.v.lines.length) { const [who, text] = V.v.lines[V.step++]; say(V.m[who].g, text, 4); if (V.step === 1) V.m[0].g.userData.bowT = 2.4; }
     else if (V.step === V.v.lines.length) { V.step++; say(me, V.v.reply, 4); }
     else { V.phase = 'out'; V.m.forEach(m => m.g.userData.waveT = 2.8); }
-  } else if (V.phase === 'out' && V.m.every(m => m.x > 22)) {
+  } else if (V.phase === 'out' && V.m.every(m => m.x > V.mx + 22)) {
     V.m.forEach(m => { scene.remove(m.g, m.g.userData.line, m.g.userData.float); const b = bubbles.get(m.g); if (b) { b.el.remove(); bubbles.delete(m.g); } });
     visit = null;
   }
@@ -1055,7 +1068,7 @@ const SHARK_TOAST = ['…방금 지나간 거, 붕어 맞지요?', '부캉이가
 const SHARK_SAY = ['허허… 못 본 걸로 하겠소', '저건 내 바늘엔 안 걸리오', '물고기도 체급이 있구려', '…오늘은 일찍 들어가야겠소', '곧은 바늘이라 천만다행이오', '저 친구도 세월을 낚으러 왔나 보오', '하, 저건 왕보다 먼저 왔구려'];
 let sharkRun = null, nextShark = SHARK_Q ? 4 : rand(900, 1800);
 function updateShark(dt) {
-  if (!sharkRun) { nextShark -= dt; if (nextShark <= 0) { nextShark = rand(1500, 3000); const dir = Math.random() < 0.5 ? 1 : -1; sharkRun = { dir, x: -dir * 46, z: me.position.z - FLIP() * rand(10, 22), t: 0, wake: 0, said: false }; shark.visible = true; } return; }
+  if (!sharkRun) { nextShark -= dt; if (nextShark <= 0) { nextShark = rand(1500, 3000); const dir = Math.random() < 0.5 ? 1 : -1; sharkRun = { dir, ox: me.position.x, x: me.position.x - dir * 46, z: me.position.z - FLIP() * rand(10, 22), t: 0, wake: 0, said: false }; shark.visible = true; } return; }
   const r = sharkRun; r.t += dt; r.x += r.dir * 4.6 * dt;
   shark.position.set(r.x, 0, r.z + Math.sin(r.t * 0.9) * 0.8);
   shark.rotation.y = (r.dir > 0 ? 0 : Math.PI) - Math.cos(r.t * 0.9) * 0.16 * r.dir;
@@ -1066,7 +1079,7 @@ function updateShark(dt) {
     murmur(SHARK_TOAST[Math.floor(Math.random() * SHARK_TOAST.length)], 5000); noteTitle('🦈 …방금 뭐가 지나갔어요');
     const c = npcPick(); if (c) setTimeout(() => npcSay(c, SHARK_SAY[Math.floor(Math.random() * SHARK_SAY.length)], 5, true), 1800);
   }
-  if (r.x * r.dir > 48) { shark.visible = false; sharkRun = null; }
+  if ((r.x - r.ox) * r.dir > 48) { shark.visible = false; sharkRun = null; }
 }
 
 // 양옆 길가를 어슬렁거리는 노루와 토끼. 이쪽 둑 기준 좌표로 다니고, 내가 건너가면 건너편 길가로 옮겨 보인다
@@ -1079,13 +1092,13 @@ function makeRabbit(color) {
   const tail = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 5), lam('#f3ede2')); tail.position.set(-0.26, 0.24, 0); g.add(tail);
   g.userData = { head, ears }; scene.add(g); return g;
 }
-const FAUNA = [
-  { kind: 'deer', g: makeDeer(lam('#7a5a3e')), side: Math.random() < 0.5 ? 1 : -1, speed: 0.8 },
-  ...[0, 1].map(i => ({ kind: 'rabbit', g: makeRabbit(['#b9a487', '#d8cdbb'][i]), side: i ? -1 : 1, speed: 1.5 }))
-];
+const FAUNA = [ // [종류, 둑, 구역 왼쪽, 오른쪽]
+  ['rabbit', 'near', -46, -16], ['deer', 'near', -16, 16], ['rabbit', 'near', 16, 46],
+  ['deer', 'far', -46, -16], ['rabbit', 'far', -16, 16], ['rabbit', 'far', 16, 46]
+].map(([kind, bank, lo, hi], i) => ({ kind, bank, lo, hi, speed: kind === 'deer' ? 0.8 : 1.5, g: kind === 'deer' ? makeDeer(lam(i ? '#86603f' : '#7a5a3e')) : makeRabbit(['#b9a487', '#d8cdbb', '#a99682', '#8f8172'][i % 4]) }));
 FAUNA.forEach(a => {
   a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(0.85);
-  a.x = a.side * rand(2.5, 11); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(2, 12); a.t = Math.random() * 10; a.heading = 0;
+  a.x = rand(a.lo, a.hi); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(2, 12); a.t = Math.random() * 10; a.heading = 0;
 });
 function updateFauna(dt) {
   for (const a of FAUNA) {
@@ -1094,7 +1107,7 @@ function updateFauna(dt) {
     let moving = false;
     if (a.idle > 0) {
       a.idle -= dt;
-      if (a.idle <= 0) { if (Math.random() < 0.15) a.side = -a.side; a.tx = a.side * rand(2.5, 13); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 이웃 자리 뒤 길가, 가끔은 반대편으로 건너간다
+      if (a.idle <= 0) { a.tx = Math.max(a.lo, Math.min(a.hi, a.x + rand(-9, 9))); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 제 구역 안 자리 뒤 길가
     } else if (dist < 0.15) a.idle = a.kind === 'deer' ? rand(14, 32) : rand(9, 22); // 한참 풀을 뜯고 쉰다
     else {
       moving = true;
@@ -1115,7 +1128,7 @@ function updateFauna(dt) {
       u.legs.forEach((l, i) => { l.rotation.z = moving ? Math.sin(a.t * 6 + (i % 2) * Math.PI + (i > 1 ? Math.PI / 2 : 0)) * 0.35 : l.rotation.z * 0.9; });
       u.ears.forEach((e, i) => { e.rotation.y = Math.sin(a.t * 7 + i) > 0.96 ? 0.5 : 0; });
     }
-    if (S.bank === 'far') { a.g.position.set(-a.x, 0.6 + y, -42.3 - (a.z - 1.1)); a.g.rotation.y = a.heading + Math.PI; }
+    if (a.bank === 'far') { a.g.position.set(-a.x, 0.6 + y, -42.3 - (a.z - 1.1)); a.g.rotation.y = a.heading + Math.PI; }
     else { a.g.position.set(a.x, 0.25 + y, a.z); a.g.rotation.y = a.heading; }
   }
 }
@@ -1143,7 +1156,7 @@ function pickAt(cx, cy) {
   FAUNA.forEach(a => cands.push({ obj: a.g, y: a.kind === 'deer' ? 1.1 : 0.3, r: a.kind === 'deer' ? 70 : 52, hit: () => pokeFauna(a) }));
   if (turtle.visible) cands.push({ obj: turtle, y: 0.1, r: 60, hit: pokeTurtle });
   if (shark.visible) cands.push({ obj: shark, y: 0.4, r: 80, hit: () => toast('…건드리지 마세요. 못 본 걸로 하기로 했잖아요') });
-  NPCS.forEach(c => { if (c.on) cands.push({ obj: c.g, y: 1.4, r: 60, hit: () => { npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)], 5); if (Math.random() < 0.3) c.g.userData.bowT = 2.4; } }); });
+  NPCS.forEach(c => { if (c.on) cands.push({ obj: c.g, y: 1.4, r: 60, hit: () => { npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)], 5, true); if (Math.random() < 0.3) c.g.userData.bowT = 2.4; } }); });
   cands.push({ obj: cairn, y: (cairn.userData.h || 2) * 0.5, r: 48, hit: addStone });
   sotdae.forEach(sd => cands.push({ obj: sd.g, y: 6, r: 60, hit: () => pokeSotdae(sd) }));
   if (crane.visible) cands.push({ obj: crane, y: 0.4, r: 70, hit: pokeCrane });
@@ -1165,9 +1178,9 @@ function pokeFauna(a) {
   const flee = a.kind === 'rabbit' || now - (a.poked || 0) < 6000; // 노루는 두 번 연달아 건드리면 달아난다
   a.poked = now;
   if (flee) {
-    const away = Math.sign(a.x || 1) * (Math.random() < 0.8 ? 1 : -1);
-    a.tx = Math.max(-13, Math.min(13, a.x + away * rand(3, 6))); a.tz = rand(2.5, 3.6); a.idle = 0; a.boostT = 2.5;
-  } else { a.idle = rand(4, 6); a.alertT = 2.6; a.heading = Math.atan2(-(1.1 - a.z), -a.x); }
+    const away = Math.sign((a.x - (a.lo + a.hi) / 2) || 1) * (Math.random() < 0.8 ? 1 : -1);
+    a.tx = Math.max(a.lo, Math.min(a.hi, a.x + away * rand(3, 6))); a.tz = rand(2.5, 3.6); a.idle = 0; a.boostT = 2.5;
+  } else { a.idle = rand(4, 6); a.alertT = 2.6; if (a.bank === S.bank) a.heading = Math.atan2(-(1.1 - a.z), mySeat().x - a.x); }
   const lines = a.kind === 'rabbit' ? RABBIT_SAY : DEER_SAY;
   say(a.g, flee && a.kind === 'deer' ? '(후다닥)' : lines[Math.floor(Math.random() * lines.length)], 2.5);
   sfx.call(a.kind, 0, 1);
@@ -1184,7 +1197,7 @@ function updateTurtle(dt) {
     nextTurtle -= dt;
     if (nextTurtle <= 0) {
       nextTurtle = rand(70, 160);
-      turtleRun = { t: 0, dur: rand(14, 22), x: me.position.x + rand(-14, 14), z: me.position.z - FLIP() * rand(4.5, 13), dir: Math.random() * Math.PI * 2, rip: 0, said: false };
+      turtleRun = { t: 0, dur: rand(14, 22), x: rand(-44, 44), z: rand(-37, -6), dir: Math.random() * Math.PI * 2, rip: 0, said: false };
       turtle.visible = true;
     }
     return;
@@ -1254,18 +1267,7 @@ function updateLanterns(dt) {
     }
   }
   // 이웃 낚시꾼도 가끔 등을 띄운다
-  npcLanternT -= dt;
-  if (npcLanternT <= 0) {
-    npcLanternT = rand(300, 600);
-    const c = npcPick();
-    if (c && !lanterns.some(L => L.owner === 'npc')) {
-      const w = WISHES[Math.floor(Math.random() * 6)], p = waterIn(c.g, c.g.userData.float, npcSide());
-      spawnLantern(w, p.x, p.z, 'npc'); npcSay(c, `‘${w}’ 두 글자 적어 띄워 보내오`, 5);
-    }
-  }
 }
-let npcLanternT = rand(70, 140);
-const npcSide = () => S.bank === 'far' ? -1 : 1; // 이웃 낚시꾼은 늘 이쪽 둑에 앉고, 건너가면 세상이 뒤집혀 보인다
 // 낚시꾼 앞 물 위 한 점: 찌가 떠 있으면 찌 곁, 아니면 발 앞 물가
 function waterIn(g, float, side) {
   if (float && float.visible) return { x: float.position.x + rand(-0.4, 0.4), z: float.position.z };
@@ -1561,16 +1563,12 @@ function updateBless(dt) {
   if (cairn.userData.pop) { cairn.userData.pop = Math.max(0, cairn.userData.pop - dt * 2.5); cairn.scale.y = 1 + Math.sin(cairn.userData.pop * Math.PI) * 0.08; }
   blessT += dt;
   if (blessT > 1) {
-    const e = blessT; blessT = 0;
+    blessT = 0;
     if (night < 0.35) meetLong('日', true);
     const c = npcPick();
-    if (S.session > 0 && e) {
-      if (!store.get('hintStone', false) && performance.now() > 95000) { store.set('hintStone', true); c ? npcSay(c, '건너편 산 아래 돌탑이 보이오? 눌러서 돌 하나 얹고 소원을 빌어 보시오', 7) : murmur('건너편 산 아래 돌탑을 눌러 돌 하나 얹어 보세요'); }
-      else if (!store.get('wished', false) && !store.get('hintWish', false) && performance.now() > 210000) { store.set('hintWish', true); c ? npcSay(c, '소원등에 두 글자 적어 강물에 띄워 보시오. 다 떠내려가면 또 띄울 수 있소', 7) : murmur('소원등에 두 글자를 적어 강물에 띄워 보세요'); }
-    }
     if (!moonSaid && night > 0.6) {
       const ln = lunarNow();
-      if (ln.full) { moonSaid = true; const msg = ln.fest ? `${ln.fest} 보름달이 떴구려. 소원등 하나 띄워 보시오` : '보름달이 떴구려. 소원 하나 빌어 보시오'; c ? npcSay(c, msg, 7) : toast(`${ln.fest || '보름'} 달이 떴어요. 소원등을 띄워 보세요`, 6000); }
+      if (ln.full) { moonSaid = true; const msg = ln.fest ? `${ln.fest} 보름달이 떴구려` : '보름달이 떴구려. 소원 하나 빌어 보시오'; c ? npcSay(c, msg, 7) : murmur(ln.fest ? `${ln.fest} 보름달이 떴어요` : '보름달이 떴어요'); }
     }
   }
 }
@@ -1597,8 +1595,8 @@ function updateWild(dt) {
       u.wl.rotation.x = -a; u.wr.rotation.x = a;
     }
     f.callT -= dt;
-    if (f.callT <= 0) { f.callT = rand(1.8, 4.5); if (Math.abs(f.x) < 30 && Math.random() < 0.6) sfx.call(k.call, f.x / 30, 0.55 * Math.max(0.35, 1 + f.z / 45)); }
-    if (f.x * f.dir > 52) { f.birds.forEach(b => scene.remove(b)); flocks.splice(i, 1); }
+    if (f.callT <= 0) { f.callT = rand(1.8, 4.5); if (Math.abs(f.x - me.position.x) < 30 && Math.random() < 0.6) sfx.call(k.call, (f.x - me.position.x) / 30, 0.55 * Math.max(0.35, 1 + f.z / 45)); }
+    if ((f.x - f.ox) * f.dir > 52) { f.birds.forEach(b => scene.remove(b)); flocks.splice(i, 1); }
   }
 
   nextLeap -= dt;
@@ -2188,7 +2186,7 @@ function pushPresence(force) {
   if (!force && now - lastPresence < 60000) return; // 수염 자라는 정도라 1분에 한 번이면 충분하다
   if (wait > 0) { if (!presenceTimer) presenceTimer = setTimeout(() => { presenceTimer = 0; pushPresence(true); }, wait); return; }
   lastPresence = now;
-  S.chan.track({ v: 1, name: S.name, fishing: S.fishing, days: Math.floor(S.session), total: Math.floor(S.total), uid: S.uid || null, bank: S.bank }).catch(() => {});
+  S.chan.track({ v: 1, name: S.name, fishing: S.fishing, days: Math.floor(S.session), total: Math.floor(S.total), uid: S.uid || null, bank: S.bank, seat: S.seatIdx, seatAt: S.seatAt }).catch(() => {});
 }
 function sendEmote() {
   if (S.chan) S.chan.send({ type: 'broadcast', event: 'emote', payload: { peer: S.tabId, em: myEmote } }).catch(() => {});
@@ -2200,106 +2198,137 @@ const setMyTag = () => { myTag.querySelector('.nm > span').textContent = S.name;
 setMyTag();
 function nameFor(by, fallbackIdx) { return (by && names.get(by)) || `강태공 ${fallbackIdx + 1}`; }
 
-/* ---------------- 이웃 낚시꾼: 사람이 적을 때 곁을 지켜 준다 ---------------- */
-// 진짜 사람이 하나 올 때마다 하나씩 자리를 비켜 준다. 사람 수와 장부에는 들어가지 않는다.
+/* ---------------- 강가의 할배들: 길을 오가며 인사를 건넨다 ---------------- */
+// 사람 수와 장부에는 들어가지 않는다. 말로 설명하지 않고, 해 보이며 슬쩍 권한다
 const NPCS = [
-  { name: '수염 긴 강태공', robe: '#5b6b5a', seat: 1, age: 2600 },
-  { name: '말 없는 왜가리', robe: '#7a6a8a', seat: 0, age: 120 },
-  { name: '허허 웃는 뱃사공', robe: '#9a6a52', seat: 3, age: 900 }
+  { name: '지게 진 나무꾼', robe: '#7a5a3e', wood: true, guide: true, lines: ['나무하러 오가며 늘 보았소', '이 길은 천천히 걸어야 제맛이오', '지게가 가벼운 날은 마음도 가볍소', '오늘은 산이 말이 많구려'] },
+  { name: '약초 캐는 할배', robe: '#6b6a4e', herb: true, lines: ['이 산엔 약초보다 세월이 더 많소', '쉬엄쉬엄 가시오. 약초도 천천히 자라오', '저 산 너머 노루가 또 기웃거리는군', '바람이 바뀌었소. 계절이 오려나 보오'] }
 ];
-NPCS.forEach(c => {
-  c.g = makeAngler(c.robe); c.g.visible = false; scene.add(c.g);
-  newSpot(c.g.userData); c.g.userData.castTarget = 1; c.g.userData.cast = 1;
-  c.tag = makeTag(); c.tag.querySelector('.nm > span').textContent = c.name; c.tag.hidden = true;
-  c.on = false;
+const NPC_LINES = ['강물 소리에 귀가 씻기는구려', '산그림자가 한 뼘 길어졌구려', '고기가 안 무는 날이 제일 좋은 날이오', '어제 낚은 세월은 어디 두셨소?', '십 년을 앉아 있으면 왕이 온다더이다', '여기선 아무것도 안 해도 괜찮소', '허허, 오늘도 평안하시오', '천천히 걸어도 다 닿는다오'];
+const ELDER_HELLO = ['평안하시오', '허허, 오래 앉으셨구려', '오늘 강이 좋지요?', '세월 많이 낚으시오', '(꾸벅)'];
+NPCS.forEach((c, i) => {
+  c.g = makeWalker(c);
+  const u = c.g.userData; if (u.beard) { u.beard.scale.set(1.35, 2.3, 1.35); u.beard.position.y -= 0.44; }
+  c.tag = makeTag(); c.tag.querySelector('.nm > span').textContent = c.name;
+  c.on = true; c.bank = c.guide ? S.bank : 'near'; c.x = c.guide ? mySeat().x + (Math.random() < 0.5 ? -1 : 1) * rand(7, 10) : rand(-44, 44); c.z = 2.5 + i * 0.5; c.tx = c.x;
+  c.idle = rand(2, 6); c.mode = 'stroll'; c.q = []; c.t = Math.random() * 10; c.head = 0;
 });
-// 이웃 낚시꾼은 늘 반계 강가에 앉아 있다. 내가 건너가면 강 건너로 보인다
-function placeNpcs() { const away = S.bank === 'far'; NPCS.forEach(c => { const st = NEAR_SEATS[c.seat]; seatOn(c.g, st.x, st.z, 'near', away ? 1.5 : 1); c.tag.classList.toggle('far', away); }); }
-placeNpcs();
-let npcReady = false;
-function setNpcCount(n, skip) {
-  NPCS.forEach((c, i) => {
-    const on = i < n && !(skip && skip.has(i));
-    if (on === c.on) return;
-    c.on = on; c.g.visible = on; c.tag.hidden = !on;
-    if (!on) {
-      c.g.userData.line.visible = c.g.userData.float.visible = false;
-      const b = bubbles.get(c.g); if (b) { b.el.remove(); bubbles.delete(c.g); }
-    }
-  });
-  npcReady = true;
+const GUIDE = NPCS[0];
+const elderNear = c => c.bank === S.bank && Math.abs(c.x - mySeat().x) < 16;
+const npcOn = () => NPCS.filter(elderNear);
+const npcPick = () => { const l = npcOn(); return l.length ? l[Math.floor(Math.random() * l.length)] : null; };
+const npcSay = (c, text, sec = 6, force) => { if (!c || (!force && c.hush > performance.now())) return; if (force || elderNear(c)) say(c.g, text, sec); };
+// 나무꾼 할배를 내 곁으로 불러, 도착하면 할 일을 한다
+function npcCall(fn) {
+  if (GUIDE.q.length >= 3) return;
+  GUIDE.q.push(fn);
+  if (GUIDE.bank !== S.bank) { GUIDE.bank = S.bank; GUIDE.x = mySeat().x + (Math.random() < 0.5 ? -1 : 1) * 24; } // 강 건너에 있었으면 조용히 이쪽 길 끝에서 걸어온다
+  if (GUIDE.mode !== 'come') { GUIDE.mode = 'come'; GUIDE.idle = 0; }
 }
-const npcOn = () => NPCS.filter(c => c.on);
-const npcPick = () => { const l = npcOn(); return l[Math.floor(Math.random() * l.length)]; };
-const npcSay = (c, text, sec = 6, force) => { if (c && c.on && (force || !(c.hush > performance.now()))) say(c.g, text, sec); };
-const npcSeat = () => NPCS.slice(0, npcOn().length).map(c => c.seat);
+function elderCross() { if (GUIDE.bank !== S.bank && tutStep < 8) { GUIDE.bank = S.bank; GUIDE.x = mySeat().x + 20; GUIDE.tx = mySeat().x + 6; GUIDE.idle = 0; } }
+function updateElders(dt) {
+  const mx = mySeat().x;
+  for (const c of NPCS) {
+    c.t += dt;
+    c.z += ((c.mode === 'come' ? mySeat().z + 0.25 : 2.6) - c.z) * Math.min(1, dt * 0.8); // 곁에 올 땐 나란히 선다
+    if (c.mode === 'come') { c.tx = mx + (c.x >= mx ? 2.3 : -2.3); if (Math.abs(c.x - mx) > 18) c.x = mx + Math.sign(c.x - mx) * 15; } // 멀리 있으면 화면 밖에서 가까이 와서 걸어 들어온다
+    const dx = c.tx - c.x, walking = c.idle <= 0 && Math.abs(dx) > 0.06;
+    if (walking) { c.x += Math.sign(dx) * Math.min(Math.abs(dx), 1.15 * dt); c.head = dx > 0 ? -Math.PI / 2 : Math.PI / 2; }
+    else if (c.idle > 0) c.idle -= dt;
+    else if (c.mode === 'come') { // 곁에 닿았다: 나를 보고 할 일을 한다
+      c.head = (mx > c.x ? -1 : 1) * 0.9;
+      const fn = c.q.shift();
+      if (fn) { fn(); c.idle = 5; } else { c.mode = 'stroll'; c.idle = rand(6, 12); }
+    } else if (c.mode === 'visit') {
+      c.head = (c.visitX > c.x ? -1 : 1) * 0.9; c.g.userData.bowT = 2.4;
+      if (c.bank === S.bank) npcSay(c, ELDER_HELLO[Math.floor(Math.random() * ELDER_HELLO.length)], 4, true);
+      c.mode = 'stroll'; c.idle = rand(5, 9);
+    } else if (!c.rest) { c.rest = true; c.head = Math.random() < 0.6 ? 0 : c.head; c.idle = rand(6, 16); } // 멈춰 서서 강을 본다
+    else { // 다음 갈 곳
+      c.rest = false;
+      if (c.guide && c.q.length) { c.mode = 'come'; continue; }
+      const peers = [...others.values()].filter(o => o.bank === c.bank && o.seatX != null);
+      if (peers.length && Math.random() < 0.3) { const o = peers[Math.floor(Math.random() * peers.length)]; c.mode = 'visit'; c.visitX = o.seatX; c.tx = o.seatX + (Math.random() < 0.5 ? -1.6 : 1.6); }
+      else if (c.guide && tutStep < 8) c.tx = mx + (Math.random() < 0.5 ? -1 : 1) * rand(6, 10); // 처음 온 사람 곁을 맴돈다
+      else {
+        if (!c.guide && Math.random() < 0.2 && (c.bank !== S.bank || Math.abs(c.x - mx) > 26)) { c.bank = c.bank === 'far' ? 'near' : 'far'; c.x = (Math.random() < 0.5 ? -1 : 1) * 52; } // 안 보이는 데서 나룻배로 건너간다
+        c.tx = rand(-46, 46);
+        if (c.bank === S.bank && Math.abs(c.tx - mx) < 6) c.tx = mx + Math.sign(c.tx - mx || 1) * rand(6, 12); // 남의 등 뒤에 멈춰 서서 가리지 않게
+      }
+    }
+    const u = c.g.userData, bob = walking ? Math.abs(Math.sin(c.t * 6)) * 0.06 : 0;
+    if (c.bank === 'far') { c.g.position.set(-c.x, 0.6 + bob, -42.3 - (c.z - 1.1)); c.g.rotation.y = c.head + Math.PI; }
+    else { c.g.position.set(c.x, 0.25 + bob, c.z); c.g.rotation.y = c.head; }
+    c.tag.classList.toggle('far', c.bank !== S.bank);
+    updateAngler(c.g, t, dt);
+  }
+}
 function pulse(id) { const b = $(id); b.classList.remove('pulse'); void b.offsetWidth; b.classList.add('pulse'); setTimeout(() => b.classList.remove('pulse'), 9000); }
 function npcTea(c, hint) {
   if (!c) return;
-  npcSay(c, TEA_GIVE[Math.floor(Math.random() * TEA_GIVE.length)]);
+  npcSay(c, TEA_GIVE[Math.floor(Math.random() * TEA_GIVE.length)], 5, true);
   flyTea(c.g, me); noteTitle('🍵 차 한잔이 도착했어요');
-  setTimeout(() => {
-    say(me, '(따뜻하다)'); sfx.call('clink', 0, 1);
-    toast(hint ? `${c.name}님이 차 한잔을 건넸어요. ‘차 한잔’을 누르면 옆 사람에게 건넬 수 있어요` : `${c.name}님이 차 한잔을 건넸어요`, 6000);
-  }, 1300);
+  setTimeout(() => { say(me, '(따뜻하다)'); sfx.call('clink', 0, 1); toast(`${c.name}님이 차 한잔을 건넸어요`, 5000); if (hint) pulse('btnTea'); }, 1300);
 }
-const NPC_LINES = ['오늘은 강이 말이 많구려', '고기는 안 물어도 마음은 물리지', '저 산 너머 노루가 또 기웃거리는군', '비 오는 날엔 세월이 더 잘 낚인다오', '젊은이, 서두르지 마시게', '산그림자가 한 뼘 길어졌구려', '물새가 바늘을 놀리고 갔소', '십 년을 앉아 있으면 왕이 온다더이다', '어제 낚은 세월은 어디 두셨소?', '바늘 끝이 오늘따라 반짝이오', '고기가 안 무는 날이 제일 좋은 날이오', '거북이가 나보다 먼저 왔더이다', '강물 소리에 귀가 씻기는구려', '이 자리에 앉은 지 몇 해인지 잊었소', '물새가 내 삿갓을 제 집인 줄 아오', '오늘 저녁은 뭘 드시려오? 나는 세월이오', '저 건너 양반은 졸고 있구려', '바람이 바뀌었소. 계절이 오려나 보오', '수염이 길어 낚싯줄인 줄 알았소', '젊었을 땐 나도 연타를 했지'];
-const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오', '허허, 그 시는 강물에 띄워 보내시오', '한 수 더 하시오, 고기도 듣고 있소', '음, 바늘보다 시가 더 곧구려'];
-// 처음 온 사람에게 하나씩 알려 준다. 어디까지 했는지는 브라우저에 남겨 둔다
-let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 40, greeted = tutStep < 8; // 튜토리얼 중인 사람에겐 '또 오셨구려' 인사를 하지 않는다
+// 할배가 내 앞 물에 소원등을 띄워 보인다
+function elderLantern(c, w) {
+  const side = c.bank === 'far' ? -1 : 1;
+  spawnLantern(w, c.g.position.x + rand(-0.5, 0.5), c.g.position.z - side * 3.4, 'npc');
+  c.g.userData.bowT = 2.4; npcSay(c, `‘${w}’`, 3, true);
+}
+const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오', '음, 바늘보다 시가 더 곧구려'];
+// 처음 온 사람 곁을 맴돌며 해 보인다. 어디까지 했는지는 브라우저에 남겨 둔다
+let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 50, greeted = tutStep < 8; // 처음 온 사람에겐 '또 오셨구려' 인사를 하지 않는다
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
+const G = () => GUIDE;
 function tickNpc(dt) {
-  for (const c of NPCS) if (c.on && c.reelAt && performance.now() > c.reelAt) { c.reelAt = 0; newSpot(c.g.userData); c.g.userData.castTarget = 1; }
-  const on = npcOn();
-  if (!on.length) return;
+  updateElders(dt);
   tutT += dt;
-  const A = on[0], B = on[1] || A, C = on[2] || B;
-  if (tutStep >= 8 && !greeted && tutT > 3) {
-    greeted = true; A.g.userData.bowT = 2.4;
+  if (tutStep >= 8 && !greeted && tutT > 4) {
+    greeted = true;
     const n = store.get('visits', 1), ORD = ['', '첫', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
-    npcSay(A, n >= 2 ? `${n <= 10 ? ORD[n] + ' ' : n}번째 찾아오셨구려. 자리는 그대로 비워 두었소` : '또 오셨구려. 자리는 그대로 비워 두었소');
+    npcCall(() => { G().g.userData.bowT = 2.4; npcSay(G(), n >= 2 ? `${n <= 10 ? ORD[n] + ' ' : n}번째 찾아오셨구려. 오늘도 평안하시오` : '또 오셨구려. 오늘도 평안하시오', 6, true); });
     return;
   }
-  if (TERM && !termSaid && tutT > 9 && (tutStep >= 8 || tutStep === 0)) { termSaid = true; npcSay(B, TERM[5]); }
+  if (TERM && !termSaid && tutT > 14 && (tutStep >= 8 || tutStep === 0)) { termSaid = true; npcCall(() => npcSay(G(), TERM[5], 6, true)); }
   switch (tutStep) {
-    case 0: if (tutT > 3) { A.g.userData.bowT = 2.4; npcSay(A, '어서 오시오. 이 강엔 미끼 없는 곧은 바늘만 드리운다오'); tutNext(); } return;
+    case 0: if (tutT > 3) { npcCall(() => { G().g.userData.bowT = 2.4; npcSay(G(), '어서 오시오. 여기선 아무것도 안 해도 괜찮소', 6, true); }); tutNext(); } return;
     case 1:
       if (S.fishing) tutNext(2);
-      else if (tutT > 6) { npcSay(A, '저 아래 ‘낚싯대 드리우기’를 눌러 보시게', 8); pulse('btnCast'); tutNext(); }
+      else if (tutT > 10) { npcCall(() => { npcSay(G(), '심심하면 낚싯대나 드리워 보시게', 6, true); pulse('btnCast'); }); tutNext(); }
       return;
-    case 2: if (S.fishing && tutT > 1.5) { $('btnCast').classList.remove('pulse'); npcSay(B, '허허, 이제 기다리기만 하면 되오. 숨 한 번에 하루가 흐르지'); tutNext(); } return;
-    case 3: if (S.fishing && tutT > 12) { npcTea(A, true); tutNext(); } return;
-    case 4: if (tutT > 16) { C.g.userData.bowT = 2.4; npcSay(C, POEMS[0], 5); setTimeout(() => npcSay(C, '시가 떠오르면 ‘시 한 수’를 눌러 보시오. 다들 듣는다오'), 5500); tutNext(); } return;
-    case 5: if (tutT > 22) { npcSay(B, '찌가 흔들려도 서두르지 마시오. 거둬 봐야 빈 바늘이오'); tutNext(); } return;
-    case 6: if (S.session >= 30 && tutT > 18) { npcSay(A, '세월이 쌓이면 ‘장부에 적기’로 남겨 두시오. 한자리에 오래 앉을수록 윗줄에 오른다오', 8); pulse('btnRecord'); tutNext(); } return;
-    case 7: break; // 장부에 적을 때 npcOnRecord가 다음으로 넘긴다. 그동안에도 한담은 나눈다
+    case 2: if (S.fishing && tutT > 2) { $('btnCast').classList.remove('pulse'); npcCall(() => npcSay(G(), '허허, 그거면 됐소', 4, true)); tutNext(); } return;
+    case 3: if (S.fishing && tutT > 16) { npcCall(() => npcTea(G(), true)); tutNext(); } return;
+    case 4: if (tutT > 40) { npcCall(() => { elderLantern(G(), '평안'); setTimeout(() => pulse('btnWish'), 2500); }); tutNext(); } return;
+    case 5: if (tutT > 45) { npcCall(() => { G().g.userData.waveT = 2.8; npcSay(G(), '건너편 돌탑에 돌 하나 얹고 왔소', 5, true); }); tutNext(); } return;
+    case 6: if (S.session >= 30 && tutT > 25) { npcCall(() => { npcSay(G(), '세월이 쌓였구려. 장부에 적어 두시오', 6, true); pulse('btnRecord'); }); tutNext(); } return;
+    case 7: break; // 장부에 적을 때 npcOnRecord가 다음으로 넘긴다. 그동안에도 할배들은 오간다
   }
   npcT -= dt * (document.body.classList.contains('still') ? 0.5 : 1);
   if (npcT > 0) return;
   npcT = 60 + Math.random() * 70;
-  const c = npcPick(), r = Math.random();
-  if (S.bank === 'far' && r < 0.3) { c.g.userData.waveT = 2.8; npcSay(c, '어이— 건너편 양반!', 4); return; } // 건너가 있으면 이쪽에서 손을 흔들어 준다
-  if (r < 0.32) npcSay(c, POEMS[Math.floor(Math.random() * POEMS.length)]);
-  else if (r < 0.5 && S.fishing) npcTea(c, false);
-  else if (r < 0.62 && on.length > 1) { const d = on.find(x => x !== c); npcSay(c, TEA_GIVE[0]); flyTea(c.g, d.g); setTimeout(() => npcSay(d, '고맙소, 따뜻하구려', 4), 1400); }
-  else if (r < 0.72) { c.g.userData.castTarget = 0; npcSay(c, REEL[Math.floor(Math.random() * REEL.length)], 4); c.reelAt = performance.now() + 2600; }
-  else if (r < 0.82) { c.g.userData.bowT = 2.4; npcSay(c, BOW[1], 4); }
-  else npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)]);
+  const c = npcPick();
+  if (!c) { const far = NPCS.find(n => n.bank !== S.bank && Math.abs(n.g.position.x - me.position.x) < 20); if (far && Math.random() < 0.5) { far.g.userData.waveT = 2.8; say(far.g, '어이—', 3); } return; } // 강 건너에서 손을 흔들어 준다
+  const r = Math.random(), mine = c.lines;
+  if (r < 0.3) npcSay(c, mine[Math.floor(Math.random() * mine.length)]);
+  else if (r < 0.5) npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)]);
+  else if (r < 0.62) npcSay(c, POEMS[Math.floor(Math.random() * POEMS.length)]);
+  else if (r < 0.74 && S.fishing && c === GUIDE) npcCall(() => npcTea(GUIDE, false));
+  else if (r < 0.84) { c.g.userData.bowT = 2.4; npcSay(c, BOW[1], 4); }
+  else if (!lanterns.some(L => L.owner === 'npc')) elderLantern(c, WISHES[Math.floor(Math.random() * 6)]);
 }
 function npcOnRecord() {
-  const c = npcPick(); if (!c) return;
   const firstTime = tutStep < 8;
-  setTimeout(() => npcSay(c, firstTime ? '잘 적으셨소. 세월 카드로 벗들에게 자랑해도 좋소' : '허허, 또 한 줄 적으셨구려', 7), 900);
-  if (tutStep < 8) { $('btnRecord').classList.remove('pulse'); tutNext(8); }
+  npcCall(() => npcSay(G(), firstTime ? '잘 적으셨소' : '허허, 또 한 줄 적으셨구려', 5, true));
+  if (firstTime) { $('btnRecord').classList.remove('pulse'); tutNext(8); }
 }
-// 내가 한 일에 이웃 낚시꾼이 답한다
+// 내가 한 일에 곁에 있는 할배가 답한다
 function npcReact(kind) {
   const c = npcPick(); if (!c || performance.now() < hurryUntil - 5000) return; // 방금 한마디 했으면 잠자코 있는다
   if (kind === 'bow') setTimeout(() => { c.g.userData.bowT = 2.4; npcSay(c, '(맞읍)', 3); }, 1100);
-  else if (kind === 'wave') npcOn().forEach((n, k) => setTimeout(() => { n.g.userData.waveT = 2.8; if (k === 0) npcSay(n, S.bank === 'far' ? '어이— 잘 보이오!' : '허허, 반갑소', 3); }, 900 + k * 500));
+  else if (kind === 'wave') npcOn().forEach((n, k) => setTimeout(() => { n.g.userData.waveT = 2.8; if (k === 0) npcSay(n, '허허, 반갑소', 3); }, 900 + k * 500));
   else if (kind === 'poem' && Math.random() < 0.6) setTimeout(() => npcSay(c, NPC_REPLY_POEM[Math.floor(Math.random() * NPC_REPLY_POEM.length)], 4), 2600);
 }
-setNpcCount(NPCS.length);
 
 // 연타하면 옆자리에서 한마디 한다
 const HURRY = ['천천히 하시오. 강은 기다려 준다오', '숨 한 번 쉬고 가시오', '서두르지 않아도 세월은 온다오', '허허, 쉬엄쉬엄 하시오', '바람 소리나 한번 들어 보시오', '찌처럼 가만히 있어 보시오', '마음이 급하면 차 한잔 하시오', '강물처럼 천천히 가시오', '여기선 아무것도 안 해도 괜찮소'];
@@ -2326,7 +2355,8 @@ function crossRiver() {
   crossing = true; $('veil').classList.add('on');
   setTimeout(() => {
     S.bank = S.bank === 'far' ? 'near' : 'far'; store.set('bank', S.bank);
-    placeMe(); placeNpcs(); updateCross();
+    pickMySeat(new Set([...seatOf.values()].map(st => st.bank + ':' + seatsOf(st.bank).indexOf(st))));
+    placeMe(); elderCross(); updateCross();
     cam.tYaw = cam.yaw = 0; cam.vel = 0;
     if (S.fishing) { newSpot(me.userData); castLine(); }
     for (let i = 0; i < RN; i++) dropAt(rainP, i, Math.random() * 14);
@@ -2353,7 +2383,7 @@ $('btnShare').onclick = async () => {
 };
 updateCross();
 
-let peersSeen = false;
+let peersSeen = false, seatMoveCool = 0;
 // 폰을 잠깐 내려놓거나 망이 흔들려 끊긴 사람은 바로 지우지 않고 25초 동안 자리를 지켜 준다
 const recent = new Map(); // peer -> {p, t: 마지막으로 보인 때}
 let freshPeers = [];
@@ -2369,17 +2399,25 @@ function syncPeers(list) {
   lastPeerList = list;
   const rest = list.filter(p => !p.sameTab && p.kind === 'viewer').sort((a, b) => a.peer < b.peer ? -1 : 1);
   const keep = new Set();
-  const nNpc = Math.max(0, NPCS.length - rest.length);
-  // 이웃 낚시꾼이 앉은 자리를 빼고, 각자 고른 둑부터 채운다
-  // 사람이 이미 앉은 자리의 이웃 낚시꾼은 돌아오지 않는다. 사람을 밀어내지 않게
-  const held = new Set(rest.filter(p => seatOf.has(p.peer)).map(p => seatOf.get(p.peer)));
-  const skip = new Set(NPCS.map((c, i) => held.has(NEAR_SEATS[c.seat]) ? i : -1));
-  const taken = new Set(NPCS.slice(0, nNpc).filter((c, i) => !skip.has(i)).map(c => NEAR_SEATS[c.seat]));
-  const pool = { near: NEAR_SEATS.filter(x => !taken.has(x)), far: FAR_SEATS.filter(x => !taken.has(x)) };
-  const assign = new Map();
   const prefOf = p => (p.presence || {}).bank === 'far' ? 'far' : 'near';
-  rest.forEach(p => { const old = seatOf.get(p.peer), pl = pool[prefOf(p)]; if (old && pl.includes(old)) { pl.splice(pl.indexOf(old), 1); assign.set(p.peer, old); } });
-  rest.forEach(p => { if (assign.has(p.peer)) return; const pref = prefOf(p); const st = pool[pref].shift() || pool[pref === 'far' ? 'near' : 'far'].shift(); if (st) assign.set(p.peer, st); });
+  const wantOf = p => { const pr = p.presence || {}, L = seatsOf(prefOf(p)); return Number.isInteger(pr.seat) && L[pr.seat] ? L[pr.seat] : null; };
+  const atOf = p => Number((p.presence || {}).seatAt) || Infinity;
+  // 내 자리에 먼저 앉은 사람이 있으면 내가 빈자리로 옮겨 앉는다
+  const mine = mySeat();
+  if (performance.now() > seatMoveCool && rest.some(p => wantOf(p) === mine && (atOf(p) < S.seatAt || (atOf(p) === S.seatAt && p.peer < S.tabId)))) {
+    seatMoveCool = performance.now() + 5000;
+    pickMySeat(new Set(rest.filter(wantOf).map(p => prefOf(p) + ':' + (p.presence || {}).seat)));
+    placeMe(); if (S.fishing) { newSpot(me.userData); castLine(); } pushPresence(true);
+  }
+  // 각자 앉은 자리 그대로. 옛 버전처럼 자리 번호가 없으면 빈자리에 대신 앉힌다
+  const taken = new Set([mySeat()]), assign = new Map();
+  [...rest].sort((p, q) => atOf(p) - atOf(q)).forEach(p => { const w = wantOf(p); if (w && !taken.has(w)) { taken.add(w); assign.set(p.peer, w); } });
+  rest.forEach(p => { const old = seatOf.get(p.peer); if (!assign.has(p.peer) && old && !taken.has(old)) { taken.add(old); assign.set(p.peer, old); } });
+  rest.forEach(p => {
+    if (assign.has(p.peer)) return;
+    const pref = prefOf(p), free = [...seatsOf(pref), ...seatsOf(pref === 'far' ? 'near' : 'far')].filter(x => !taken.has(x));
+    const st = free.length ? free[hash(p.peer) % Math.min(free.length, 6)] : null; if (st) { taken.add(st); assign.set(p.peer, st); }
+  });
   seatOf.clear(); assign.forEach((st, k) => seatOf.set(k, st));
   let arrived = 0;
   rest.filter(p => assign.has(p.peer)).forEach((p, i) => {
@@ -2396,7 +2434,7 @@ function syncPeers(list) {
     const seat = assign.get(p.peer), away = seat.bank !== S.bank; // 강 건너 멀리 앉은 사람은 조금 크게, 이름표는 작게
     o.tag.classList.toggle('far', away);
     seatOn(o.g, seat.x, seat.z, seat.bank, away ? 1.5 : 1);
-    o.bank = seat.bank;
+    o.bank = seat.bank; o.seatX = seat.x;
     o.lift = away && Math.floor((o.g.position.x + 100) / 4) % 2 ? 3.5 : 2.8;
     o.idx = i;
     const pr = p.presence || {};
@@ -2440,7 +2478,6 @@ function syncPeers(list) {
     const b = bubbles.get(o.g); if (b) { b.el.remove(); bubbles.delete(o.g); }
     others.delete(peer); peerEmote.delete(peer);
   }
-  setNpcCount(nNpc, skip);
   if (arrived) magpieSoon();
   if (arrived && npcOn().length) npcSay(npcOn()[0], '새 벗이 오셨구려. 어서 앉으시오', 5);
   if (list.length) peersSeen = true;
@@ -2565,6 +2602,9 @@ async function saveRemote() {
   window.addEventListener('online', checkRiver);
 })();
 
+// 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf };
+
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
 let t = 0, wasHiddenAt = 0;
@@ -2587,7 +2627,7 @@ function frame() {
     S.session += dt * DAY;
     const d = Math.floor(S.session);
     if (MILESTONES[d] && !S.shown.has(d)) { S.shown.add(d); murmur(MILESTONES[d]); }
-    if (d >= 360 && !S.shown.has('v1')) { S.shown.add('v1'); startVisit('wood'); }
+    if (d >= 360 && !S.shown.has('v1')) { S.shown.add('v1'); npcCall(() => { GUIDE.g.userData.bowT = 2.4; npcSay(GUIDE, '허허, 일 년째 그 자리시구려', 5, true); setTimeout(() => say(me, '허허, 세월이 그리 됐소', 4), 4200); }); }
     if (d >= 1800 && !S.shown.has('v5')) { S.shown.add('v5'); startVisit('kids'); }
     if (d > 0 && d % 90 === 0 && !S.shown.has('s' + d)) { S.shown.add('s' + d); if (!MILESTONES[d]) murmur(`${SEASONS[seasonOf(S.total + S.session)]}이 왔어요`); }
     if (d >= KING_AT && !S.kingSeen) { S.kingSeen = true; summonKing(); sfx.gong(); }
@@ -2669,7 +2709,7 @@ function frame() {
 
   placeLabel(myTag, me, 2.8); myTag.style.visibility = bubbles.has(me) ? 'hidden' : '';
   for (const o of others.values()) { placeLabel(o.tag, o.g, o.lift || 2.8); o.tag.style.visibility = bubbles.has(o.g) ? 'hidden' : ''; }
-  for (const c of NPCS) if (c.on) { placeLabel(c.tag, c.g, 2.8); c.tag.style.visibility = bubbles.has(c.g) ? 'hidden' : ''; }
+  for (const c of NPCS) if (c.on) { placeLabel(c.tag, c.g, 2.9); c.tag.style.visibility = bubbles.has(c.g) || c.g.position.distanceTo(camera.position) < 9 ? 'hidden' : ''; }
   const now = performance.now() / 1000;
   for (const [g, b] of bubbles) {
     if (now > b.until) { b.el.style.opacity = 0; if (now > b.until + 0.5) { b.el.remove(); bubbles.delete(g); } continue; }
