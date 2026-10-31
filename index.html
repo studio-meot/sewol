@@ -748,6 +748,12 @@ function makePerchBird() {
   const h = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), m); h.position.set(0.14, 0.09, 0); g.add(h);
   const k = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.12, 4), lam('#e0a43a')); k.rotation.z = -Math.PI / 2; k.position.set(0.25, 0.08, 0); g.add(k);
   const tl = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.14, 4), m); tl.rotation.z = Math.PI / 2 + 0.4; tl.position.set(-0.19, 0.03, 0); g.add(tl);
+  const wings = [1, -1].map(sd => {
+    const piv = new THREE.Group(); piv.position.set(0, 0.05, sd * 0.08); g.add(piv);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.02, 0.3), m); w.position.z = sd * 0.15; piv.add(w);
+    piv.userData.sd = sd; piv.scale.z = 0.3; piv.rotation.x = sd * 0.5; return piv;
+  });
+  g.userData = { wings, home: new THREE.Vector3(0.05, 0.66, 0.02) };
   return g;
 }
 // 앉아 있던 세월만큼 모습이 변한다: 수염이 길어지고, 한 달이면 물새가 앉고, 일 년이면 바위에 이끼가 낀다
@@ -758,6 +764,32 @@ function setAge(a, days) {
   u.perch.visible = days >= 30;
   u.moss.visible = days >= 360;
   u.snowCap.visible = curSeason === 3 && days >= 20;
+}
+// 삿갓 위 물새를 건드리면 푸드덕 날아올라 한 바퀴 돌고 다시 앉거나, 멀리 갔다가 한참 뒤에 돌아온다
+function shooPerch(b, mine) {
+  const side = Math.random() < 0.5 ? 1 : -1;
+  b.userData.fly = { t: 0, stage: Math.random() < 0.5 ? 'circle' : 'away', side };
+  b.getWorldPosition(tmpV); sfx.call('egret', Math.max(-1, Math.min(1, (tmpV.x - me.position.x) / 20)), mine ? 1 : 0.6);
+}
+function flyPerch(b, dt) {
+  const f = b.userData.fly; if (!f) return false;
+  const u = b.userData, h = u.home; f.t += dt;
+  const flap = on => u.wings.forEach(w => { w.scale.z = on ? 1 : 0.3; w.rotation.x = on ? w.userData.sd * Math.sin(f.t * 20) * 0.8 : w.userData.sd * 0.5; });
+  const go = (x, y, z) => { const dx = x - b.position.x, dz = z - b.position.z; if (dx * dx + dz * dz > 1e-6) b.rotation.y = Math.atan2(-dz, dx); b.position.set(x, y, z); };
+  if (f.stage === 'circle') {
+    const k = Math.min(1, f.t / 5), a = k * Math.PI * 2 * f.side, r = 1.6 * Math.sin(k * Math.PI);
+    go(h.x + Math.sin(a) * r, h.y + Math.sin(k * Math.PI) * 1.4, h.z + (1 - Math.cos(a)) * r * 0.6); flap(k < 0.94);
+    if (k >= 1) { b.position.copy(h); b.rotation.y = 0; flap(false); u.fly = null; }
+  } else if (f.stage === 'away' || f.stage === 'back') {
+    const k = Math.min(1, f.t / 4.5), q = f.stage === 'away' ? k * k : (1 - k) * (1 - k);
+    go(h.x + f.side * q * 30, h.y + q * 9, h.z - q * 12); flap(f.stage === 'away' || k < 0.94);
+    b.scale.setScalar(1);
+    if (k >= 1) {
+      if (f.stage === 'away') { f.stage = 'gone'; f.t = 0; f.wait = rand(90, 240); b.scale.setScalar(1e-4); }
+      else { b.position.copy(h); b.rotation.y = 0; flap(false); u.fly = null; }
+    }
+  } else if (f.t >= f.wait) { f.stage = 'back'; f.t = 0; }
+  return true;
 }
 const tmpV = new THREE.Vector3(), tmpV2 = new THREE.Vector3();
 function updateAngler(a, t, dt) {
@@ -781,7 +813,7 @@ function updateAngler(a, t, dt) {
   const tipW = u.tip.getWorldPosition(tmpV);
   const visible = u.cast > 0.6;
   u.line.visible = u.float.visible = visible;
-  if (u.perch && u.perch.visible) u.perch.rotation.y = Math.sin(t * 0.31 + u.ph) > 0.85 ? 0.9 : Math.sin(t * 0.23 + u.ph) < -0.9 ? -0.7 : 0;
+  if (u.perch && u.perch.visible && !flyPerch(u.perch, dt)) u.perch.rotation.y = Math.sin(t * 0.31 + u.ph) > 0.85 ? 0.9 : Math.sin(t * 0.23 + u.ph) < -0.9 ? -0.7 : 0;
   if (!visible) return;
   const fp = tmpV2.copy(u.floatOff).applyMatrix4(a.matrixWorld);
   const bob = u.nibble > 0 ? -0.08 * Math.sin(u.nibble * 14) : 0;
@@ -1169,9 +1201,10 @@ function pickAt(cx, cy) {
   sotdae.forEach(sd => cands.push({ obj: sd.g, y: 6, r: 60, hit: () => pokeSotdae(sd) }));
   if (crane.visible) cands.push({ obj: crane, y: 0.4, r: 70, hit: pokeCrane });
   if (magpie.visible) cands.push({ obj: magpie, y: 0, r: 60, hit: pokeMagpie });
+  [me, ...[...others.values()].map(o => o.g)].forEach(a => { const b = a.userData.perch; if (b && b.visible && !b.userData.fly) cands.push({ obj: b, world: true, y: 0, r: 34, hit: () => shooPerch(b, a === me) }); });
   let best = null, bd = Infinity;
   for (const c of cands) {
-    pickV.copy(c.obj.position); pickV.y += c.y * (c.obj.scale.y || 1); pickV.project(camera);
+    if (c.world) c.obj.getWorldPosition(pickV); else { pickV.copy(c.obj.position); pickV.y += c.y * (c.obj.scale.y || 1); } pickV.project(camera);
     if (pickV.z > 1) continue;
     const sx = rect.left + (pickV.x + 1) / 2 * rect.width, sy = rect.top + (1 - pickV.y) / 2 * rect.height;
     const d = Math.hypot(sx - cx, sy - cy);
