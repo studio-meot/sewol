@@ -83,6 +83,21 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .actions button:hover { background: rgba(243,230,204,.1); }
 .actions button:disabled { opacity: .35; cursor: default; background: none; }
 .actions button.cool { opacity: .5; transition: opacity .3s; }
+/* 소원등 고르기 */
+.bar .wishpick { pointer-events: auto; }
+.wishpick { border-radius: 18px; padding: 12px 12px 10px; margin-bottom: 8px; }
+.wishpick[hidden] { display: none; }
+.wishpick .wt { font-size: 12px; color: var(--paper-dim); text-align: center; margin-bottom: 8px; }
+.wishpick .wg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wishpick .wg button { padding: 9px 0; border-radius: 10px; font: 700 15px "Gowun Batang", serif; color: var(--paper); background: rgba(243,230,204,.07); letter-spacing: .08em; }
+.wishpick .wg button:hover { background: rgba(240,150,80,.28); }
+/* 십장생 */
+.long { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0 18px 12px; font-size: 13px; color: var(--paper-dim); }
+.long b { color: var(--paper); }
+.long .chips { display: inline-flex; gap: 3px; }
+.long .chips i { font-style: normal; font-family: "Gowun Batang", serif; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 6px; font-size: 13px; color: rgba(243,230,204,.28); border: 1px solid rgba(243,230,204,.12); }
+.long .chips i.on { color: #fff1e0; background: #b5452f; border-color: #b5452f; }
+.card .bless { font-size: 13px; color: #b5452f; margin: -8px 0 16px; }
 .actions svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .actions .cast { background: var(--paper); color: var(--ink); min-width: 104px; font-weight: 700; font-family: var(--font-display); font-size: 14px; }
 .actions .cast:hover { background: #fff3dc; }
@@ -141,7 +156,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 @media (max-width: 520px) {
   .place span { display: none; }
-  .actions button { min-width: 47px; padding: 7px 3px; font-size: 11.5px; gap: 3px; }
+  .actions button { min-width: 42px; padding: 7px 1px; font-size: 11px; gap: 3px; }
   .actions .cast { min-width: 78px; font-size: 13px; }
   .actions svg { width: 20px; height: 20px; }
   .tools .lbl { display: none; }
@@ -171,12 +186,17 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 <div class="bar">
   <div id="toast" class="pill hide" role="status" aria-live="polite"></div>
+  <div class="wishpick pill" id="wishPick" hidden>
+    <div class="wt">소원등에 적을 두 글자를 골라요</div>
+    <div class="wg" id="wishGrid"></div>
+  </div>
   <div class="actions pill">
     <button id="btnCast" class="cast"><svg viewBox="0 0 24 24"><path d="M4 20L17 4"/><path d="M17 4v13"/><circle cx="17" cy="19" r="1.6"/></svg><span id="castLbl">낚싯대 드리우기</span></button>
     <button id="btnBow"><svg viewBox="0 0 24 24"><path d="M8 13l4-8 4 8"/><path d="M6.5 13h11l-1.5 6.5h-8z"/></svg>읍하기</button>
     <button id="btnWave"><svg viewBox="0 0 24 24"><path d="M8.5 12.5V6a1.5 1.5 0 0 1 3 0v5.5"/><path d="M11.5 11V4.5a1.5 1.5 0 0 1 3 0V11"/><path d="M14.5 11V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-.6a6 6 0 0 1-4.7-2.3L3.6 14.4a1.5 1.5 0 0 1 2.3-1.9l2.6 2.6"/><path d="M19.5 3.5c1 .7 1.6 1.6 1.8 2.8M3.2 6.5c.3-1.1.9-2 1.9-2.7"/></svg>손 흔들기</button>
     <button id="btnTea"><svg viewBox="0 0 24 24"><path d="M5 10h11v4a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5z"/><path d="M16 11h1.5a2.5 2.5 0 0 1 0 5H16"/><path d="M9 3.5c-.8 1 .8 2-.1 3.2M12.5 3.5c-.8 1 .8 2-.1 3.2"/></svg>차 한잔</button>
     <button id="btnPoem"><svg viewBox="0 0 24 24"><path d="M7 3.5h9.5v17H7z"/><path d="M11.8 7v9.5"/><path d="M7 3.5c-1.5 0-2.5.8-2.5 2M7 20.5c-1.5 0-2.5-.8-2.5-2v-13"/></svg>시 한 수</button>
+    <button id="btnWish"><svg viewBox="0 0 24 24"><path d="M12 2.5v2.2M8.5 4.7h7"/><path d="M7.5 7.5c0-1.6 2-2.8 4.5-2.8s4.5 1.2 4.5 2.8v7.5c0 1.6-2 2.8-4.5 2.8S7.5 16.6 7.5 15z"/><path d="M9.5 18.6h5M12 17.8v3.7"/></svg>소원등</button>
     <button id="btnRecord" disabled><svg viewBox="0 0 24 24"><path d="M15.5 3.5l5 5L10 19l-5.5.5.5-5.5z"/><path d="M13.5 5.5l5 5"/></svg>장부에 적기</button>
   </div>
   <div class="hint" id="hint">미끼 없는 곧은 바늘입니다. 화면을 끌면 강가를 둘러볼 수 있어요.</div>
@@ -189,6 +209,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <div>강가 모두가 적은 세월 <b id="allTotal">—</b></div>
     <div style="margin-top:6px">순위는 한자리에서 가장 오래 앉아 있던 세월 순이에요. 이번 주 장부는 월요일마다 새로 펼쳐요.</div>
   </div>
+  <div class="long" id="longRow">강가에서 만난 십장생 <b>0/9</b> <span class="chips"></span></div>
   <div class="ltabs" role="tablist"><button id="tabWeek" role="tab" aria-selected="true" class="on">이번 주</button><button id="tabAll" role="tab" aria-selected="false">모든 세월</button></div>
   <ol id="ledgerList"></ol>
   <div class="empty" id="ledgerEmpty">아직 장부에 오른 사람이 없어요. 세월을 낚은 뒤 ‘장부에 적기’를 누르면 첫 줄에 오릅니다.</div>
@@ -201,6 +222,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <h3 id="rTitle">빈 바늘</h3>
     <div class="dur" id="rDur">0년 0개월 3일</div>
     <p id="rText"></p>
+    <p class="bless" id="rBless"></p>
     <div class="row"><button class="sec" id="rCard">세월 카드</button><button class="pri" id="rAgain">계속 앉아 있기</button></div>
     <textarea id="rShare" aria-hidden="true" tabindex="-1"></textarea>
   </div>
@@ -617,6 +639,7 @@ function makeTree(kind, h) {
   }
   return g;
 }
+const PERCHES = []; // 까치가 내려앉는 나무 끝
 [
   // 이쪽 둑 [종류, x, z, 크기]. 드문드문, 서로 멀찍이
   ['round', -18, 6.8, 1.0], ['pine', 21, 7.6, 1.15], ['willow', 36, 6.2, 1.0], ['pine', -35, 6.6, 1.05],
@@ -625,7 +648,10 @@ function makeTree(kind, h) {
   // 강가가 좌우로 계속 이어지도록 멀리 드문드문
   ['pine', -58, 8.4, 1.1], ['round', 64, 7.8, 1.0], ['willow', -86, 6.4, 1.05], ['pine', 92, 8.8, 1.2], ['round', -120, 7.6, 1.1], ['pine', 135, 7, 1.05],
   ['round', -60, -47.4, 1.0], ['pine', 70, -47.8, 1.1], ['pine', -98, -47, 1.15], ['willow', 108, -46.2, 1.0], ['round', 150, -47.6, 1.1]
-].forEach(([kind, x, z, h]) => { const t = makeTree(kind, h); t.position.set(x, z < -20 ? 0.6 : 0.25, z); t.rotation.y = Math.random() * 6; scene.add(t); });
+].forEach(([kind, x, z, h]) => {
+  const t = makeTree(kind, h), y0 = z < -20 ? 0.6 : 0.25; t.position.set(x, y0, z); t.rotation.y = Math.random() * 6; scene.add(t);
+  PERCHES.push({ x, z, far: z < -20, top: y0 + (kind === 'pine' ? 5.0 : kind === 'round' ? 5.45 : 4.85) * h, bare: y0 + (kind === 'pine' ? 5.0 : 3.3) * h });
+});
 
 // particles by season
 const PN = 160;
@@ -1054,12 +1080,12 @@ function makeRabbit(color) {
   g.userData = { head, ears }; scene.add(g); return g;
 }
 const FAUNA = [
-  ...[0, 1].map(i => ({ kind: 'deer', g: makeDeer(lam(i ? '#86603f' : '#7a5a3e')), side: i ? 1 : -1, speed: 0.9 })),
-  ...[0, 1, 2, 3].map(i => ({ kind: 'rabbit', g: makeRabbit(['#b9a487', '#8f8172', '#d8cdbb', '#a99682'][i]), side: i % 2 ? -1 : 1, speed: 1.7 }))
+  { kind: 'deer', g: makeDeer(lam('#7a5a3e')), side: Math.random() < 0.5 ? 1 : -1, speed: 0.8 },
+  ...[0, 1].map(i => ({ kind: 'rabbit', g: makeRabbit(['#b9a487', '#d8cdbb'][i]), side: i ? -1 : 1, speed: 1.5 }))
 ];
 FAUNA.forEach(a => {
   a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(0.85);
-  a.x = a.side * rand(2.5, 11); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(0, 4); a.t = Math.random() * 10; a.heading = 0;
+  a.x = a.side * rand(2.5, 11); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(2, 12); a.t = Math.random() * 10; a.heading = 0;
 });
 function updateFauna(dt) {
   for (const a of FAUNA) {
@@ -1068,8 +1094,8 @@ function updateFauna(dt) {
     let moving = false;
     if (a.idle > 0) {
       a.idle -= dt;
-      if (a.idle <= 0) { if (Math.random() < 0.35) a.side = -a.side; a.tx = a.side * rand(2.5, 13); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 이웃 자리 뒤 길가, 가끔은 반대편으로 건너간다
-    } else if (dist < 0.15) a.idle = a.kind === 'deer' ? rand(4, 10) : rand(2, 6);
+      if (a.idle <= 0) { if (Math.random() < 0.15) a.side = -a.side; a.tx = a.side * rand(2.5, 13); a.tz = rand(2.5, 3.6); } // 다음 갈 곳: 이웃 자리 뒤 길가, 가끔은 반대편으로 건너간다
+    } else if (dist < 0.15) a.idle = a.kind === 'deer' ? rand(14, 32) : rand(9, 22); // 한참 풀을 뜯고 쉰다
     else {
       moving = true;
       if (a.boostT > 0) a.boostT -= dt;
@@ -1118,6 +1144,10 @@ function pickAt(cx, cy) {
   if (turtle.visible) cands.push({ obj: turtle, y: 0.1, r: 60, hit: pokeTurtle });
   if (shark.visible) cands.push({ obj: shark, y: 0.4, r: 80, hit: () => toast('…건드리지 마세요. 못 본 걸로 하기로 했잖아요') });
   NPCS.forEach(c => { if (c.on) cands.push({ obj: c.g, y: 1.4, r: 60, hit: () => { npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)], 5); if (Math.random() < 0.3) c.g.userData.bowT = 2.4; } }); });
+  cands.push({ obj: cairn, y: (cairn.userData.h || 2) * 0.5, r: 48, hit: addStone });
+  sotdae.forEach(sd => cands.push({ obj: sd.g, y: 6, r: 60, hit: () => pokeSotdae(sd) }));
+  if (crane.visible) cands.push({ obj: crane, y: 0.4, r: 70, hit: pokeCrane });
+  if (magpie.visible) cands.push({ obj: magpie, y: 0, r: 60, hit: pokeMagpie });
   let best = null, bd = Infinity;
   for (const c of cands) {
     pickV.copy(c.obj.position); pickV.y += c.y * (c.obj.scale.y || 1); pickV.project(camera);
@@ -1130,6 +1160,7 @@ function pickAt(cx, cy) {
   return false;
 }
 function pokeFauna(a) {
+  if (a.kind === 'deer') meetLong('鹿');
   const now = performance.now();
   const flee = a.kind === 'rabbit' || now - (a.poked || 0) < 6000; // 노루는 두 번 연달아 건드리면 달아난다
   a.poked = now;
@@ -1165,8 +1196,383 @@ function updateTurtle(dt) {
   turtle.userData.head.position.x = r.shy ? 0.45 : 0.62 + 0.16 * Math.max(0, Math.sin(r.t * 0.5)); // 고개를 내밀었다 넣었다. 건드리면 쏙
   r.rip -= dt; if (r.rip <= 0 && up > 0.3) { r.rip = rand(2.5, 4.5); ripple({ x: r.x, z: r.z }, 0.45); }
   if (!r.said && r.t > 5 && Math.random() < 0.25) { const c = npcPick(); if (c) npcSay(c, TURTLE_SAY[Math.floor(Math.random() * TURTLE_SAY.length)], 5); }
+  if (up > 0.6) meetLong('龜');
   if (r.t > 5) r.said = true;
   if (r.t >= r.dur) { turtle.visible = false; turtleRun = null; }
+}
+
+
+/* ---------------- 강가의 복: 소원등, 돌탑, 솟대, 학, 까치, 십장생, 보름달 ---------------- */
+const BLESS_Q = new URLSearchParams(location.search);
+// 소원등에는 정해 둔 두 글자만 적는다. 이상한 글이 강물에 흐르지 않게
+const WISHES = ['무탈', '건강', '평안', '행복', '안녕', '사랑', '화목', '합격', '취업', '쾌유', '순산', '장수', '재회', '성공', '풍요', '감사'];
+const LANTERN_LIFE = 100; // 초. 이만큼 흘러가면 작아져서 보이지 않는다. 그 전엔 새로 띄울 수 없다
+const RIVER_MID = -21.7;
+const lanterns = [];
+const lanternGlow = radialTex('rgba(255,196,120,1)', 'rgba(255,140,60,0)');
+function wishTex(word) {
+  const c = document.createElement('canvas'); c.width = 128; c.height = 160;
+  const tex = new THREE.CanvasTexture(c);
+  const draw = () => {
+    const g = c.getContext('2d'); g.clearRect(0, 0, 128, 160);
+    const gr = g.createLinearGradient(0, 18, 0, 142); gr.addColorStop(0, '#ffe2a8'); gr.addColorStop(1, '#ef8a4c');
+    g.fillStyle = gr; g.beginPath(); g.roundRect ? g.roundRect(24, 18, 80, 124, 20) : g.rect(24, 18, 80, 124); g.fill();
+    g.fillStyle = '#7a3322'; g.fillRect(32, 10, 64, 10); g.fillRect(32, 140, 64, 10);
+    g.fillStyle = '#5a1f12'; g.font = '700 40px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(word[0], 64, 57); g.fillText(word[1], 64, 104);
+    tex.needsUpdate = true;
+  };
+  draw(); if (document.fonts) document.fonts.load('700 40px "Gowun Batang"').then(draw, () => {});
+  return tex;
+}
+function spawnLantern(word, x, z, owner) {
+  const g = new THREE.Group();
+  const body = new THREE.Sprite(new THREE.SpriteMaterial({ map: wishTex(word), transparent: true, depthWrite: false, opacity: 0 }));
+  body.scale.set(0.46, 0.58, 1); body.position.y = 0.36; g.add(body);
+  const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: lanternGlow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  glow.scale.set(1.2, 1.2, 1); glow.position.y = 0.36; g.add(glow);
+  const shine = new THREE.Sprite(new THREE.SpriteMaterial({ map: lanternGlow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
+  shine.scale.set(0.3, 1, 1); shine.position.y = -0.2; g.add(shine); // 물에 비친 불빛
+  g.position.set(x, 0, z); scene.add(g);
+  lanterns.push({ g, body, glow, shine, t: 0, owner, ph: Math.random() * 6, vz: rand(-0.05, 0.05) });
+}
+function updateLanterns(dt) {
+  for (let i = lanterns.length - 1; i >= 0; i--) {
+    const L = lanterns[i]; L.t += dt;
+    L.g.position.x += 0.42 * dt; // 강물은 오른쪽으로 흐른다
+    L.g.position.z += L.vz * dt + (RIVER_MID - L.g.position.z) * 0.006 * dt;
+    L.g.position.y = Math.sin(t * 1.3 + L.ph) * 0.04;
+    L.body.material.rotation = Math.sin(t * 0.9 + L.ph) * 0.07;
+    const fade = Math.max(0, Math.min(1, L.t / 2.5, (LANTERN_LIFE - L.t) / 10));
+    L.body.material.opacity = fade;
+    L.glow.material.opacity = (0.15 + 0.5 * night) * fade * (0.9 + 0.1 * Math.sin(t * 3.1 + L.ph));
+    L.shine.material.opacity = (0.08 + 0.4 * night) * fade;
+    if (L.t >= LANTERN_LIFE) {
+      scene.remove(L.g); L.body.material.map.dispose(); L.body.material.dispose(); L.glow.material.dispose(); L.shine.material.dispose();
+      lanterns.splice(i, 1);
+      if (L.owner === 'me') { $('btnWish').classList.remove('cool'); murmur('등불이 먼 물굽이를 돌아 사라졌어요. 다시 띄울 수 있어요.'); }
+    }
+  }
+  // 이웃 낚시꾼도 가끔 등을 띄운다
+  npcLanternT -= dt;
+  if (npcLanternT <= 0) {
+    npcLanternT = rand(300, 600);
+    const c = npcPick();
+    if (c && !lanterns.some(L => L.owner === 'npc')) {
+      const w = WISHES[Math.floor(Math.random() * 6)], p = waterIn(c.g, c.g.userData.float, npcSide());
+      spawnLantern(w, p.x, p.z, 'npc'); npcSay(c, `‘${w}’ 두 글자 적어 띄워 보내오`, 5);
+    }
+  }
+}
+let npcLanternT = rand(70, 140);
+const npcSide = () => S.bank === 'far' ? -1 : 1; // 이웃 낚시꾼은 늘 이쪽 둑에 앉고, 건너가면 세상이 뒤집혀 보인다
+// 낚시꾼 앞 물 위 한 점: 찌가 떠 있으면 찌 곁, 아니면 발 앞 물가
+function waterIn(g, float, side) {
+  if (float && float.visible) return { x: float.position.x + rand(-0.4, 0.4), z: float.position.z };
+  return { x: g.position.x + rand(-0.5, 0.5), z: g.position.z - side * 2.6 };
+}
+function launchWish(i) {
+  const w = WISHES[i]; $('wishPick').hidden = true;
+  if (lanterns.some(L => L.owner === 'me')) return;
+  const p = waterIn(me, me.userData.float, FLIP());
+  spawnLantern(w, p.x, p.z, 'me'); $('btnWish').classList.add('cool');
+  sfx.call('clink', 0, 0.6);
+  toast(`‘${w}’ 등불을 강에 띄웠어요. 바람이 이뤄지길.`, 5000);
+  meetLong('水', true);
+  if (S.chan) S.chan.send({ type: 'broadcast', event: 'lantern', payload: { peer: S.tabId, w: i } }).catch(() => {});
+  store.set('wished', true);
+}
+function peerLantern(payload) {
+  if (!payload || typeof payload.peer !== 'string' || !Number.isInteger(payload.w) || !WISHES[payload.w]) return;
+  const o = others.get(payload.peer), now = performance.now();
+  if (!o || now < (o.lanternUntil || 0)) return; // 한 사람에 한 등씩
+  o.lanternUntil = now + LANTERN_LIFE * 900;
+  const p = waterIn(o.g, o.g.userData.float, o.bank === 'far' ? -1 : 1);
+  spawnLantern(WISHES[payload.w], p.x, p.z, payload.peer);
+}
+{
+  const grid = $('wishGrid');
+  WISHES.forEach((w, i) => { const b = document.createElement('button'); b.textContent = w; b.onclick = () => launchWish(i); grid.appendChild(b); });
+  $('btnWish').onclick = () => {
+    sfx.ensure();
+    if (lanterns.some(L => L.owner === 'me')) { toast('등불이 아직 강을 따라 떠가고 있어요. 다 떠내려가면 다시 띄울 수 있어요.'); return; }
+    $('wishPick').hidden = !$('wishPick').hidden;
+  };
+  addEventListener('pointerdown', e => { if (!$('wishPick').hidden && !e.target.closest('#wishPick, #btnWish')) $('wishPick').hidden = true; });
+}
+
+// 산 아래 돌탑. 눌러서 돌을 얹은 사람 수만큼 조금씩 높아진다 (하루에 한 사람 한 돌)
+const cairn = new THREE.Group(); cairn.position.set(8, 0.6, -54.8); scene.add(cairn);
+const stoneMats = ['#8d8276', '#7a7066', '#a09684'].map(c => lam(c));
+let stoneN = 0, stoneBusy = false;
+const CAIRN_FULL = 108; // 백팔 번뇌만큼 쌓이면 다 쌓인 탑이다
+const hillCairns = new THREE.Group(); scene.add(hillCairns);
+const HILL_X = [-30, 26, -52, 47, -12, 64, -74, 10, 36, -40, 80, -62, 55, -22, 18, -88];
+function stackStones(grp, layers, s0) {
+  let y = 0;
+  for (let i = 0; i < layers; i++) {
+    const k = 1 - i / (layers + 4), r = 0.5 * k + 0.12, j = Math.sin((i + s0) * 12.9898) * 0.5;
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), stoneMats[i % 3]);
+    st.scale.set(1.15, 0.52, 1); st.position.set(j * 0.12, y + r * 0.45, Math.cos((i + s0) * 7.3) * 0.08); st.rotation.y = i * 1.7 + s0;
+    grp.add(st); y += r * 0.86;
+  }
+  return y;
+}
+function buildHillCairns(done) {
+  while (hillCairns.children.length) { const g = hillCairns.children.pop(); g.children.forEach(m => m.geometry.dispose()); }
+  for (let i = 0; i < Math.min(done, HILL_X.length); i++) {
+    const x = HILL_X[i], g = new THREE.Group();
+    stackStones(g, 14, i * 3); g.scale.setScalar(0.55); g.position.set(x, ridgeTop(2, x) - 0.35, -59.6); hillCairns.add(g);
+  }
+}
+let hillDone = -1;
+function buildCairn(total) {
+  const done = Math.floor(total / CAIRN_FULL), n = total % CAIRN_FULL;
+  if (done !== hillDone) { hillDone = done; buildHillCairns(done); }
+  while (cairn.children.length) { const m = cairn.children.pop(); m.geometry.dispose(); }
+  const layers = 4 + Math.floor(n / CAIRN_FULL * 13);
+  const y = stackStones(cairn, layers, 0);
+  const peb = Math.min(30, Math.floor(n / 4));
+  for (let i = 0; i < peb; i++) {
+    const a = i * 2.399, rr = 0.9 + (i % 5) * 0.22, r = 0.1 + (i % 3) * 0.05;
+    const st = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 0), stoneMats[i % 3]); st.scale.y = 0.55;
+    st.position.set(Math.cos(a) * rr, r * 0.4, Math.sin(a) * rr * 0.7); cairn.add(st);
+  }
+  cairn.userData.h = y;
+}
+function setStones(n) { n = Math.max(0, Math.floor(Number(n) || 0)); if (n !== stoneN || !cairn.children.length) { stoneN = n; buildCairn(n); } }
+setStones(0);
+function loadStones() { if (S.sb) S.sb.rpc('stone_count').then(({ data, error }) => { if (!error) setStones(data); }, () => {}); }
+async function addStone() {
+  if (stoneBusy) return; stoneBusy = true;
+  sfx.call('clack', 0.2, 1); cairn.userData.pop = 1;
+  const today = kstDay();
+  try {
+    if (S.sb && S.uid) {
+      const { data, error } = await S.sb.rpc('add_stone');
+      if (!error && data) {
+        setStones(data.n); store.set('stone', today);
+        if (data.fresh && data.n % CAIRN_FULL === 0) toast(`당신의 돌로 백여덟 개가 채워져, 돌탑이 산 위로 올라갔어요. 당신의 소원이 이뤄지길 바랍니다.`, 8000);
+        else if (data.fresh) toast(`돌 하나를 얹었어요. ${Number(data.n).toLocaleString()}번째 돌이에요. 당신의 소원이 이뤄지길 바랍니다.`, 6500);
+        else toast('오늘은 이미 돌을 얹으셨어요. 소원이 꼭 이뤄지길 바랍니다.', 5000);
+        return;
+      }
+    }
+    if (store.get('stone', '') === today) toast('오늘은 이미 돌을 얹으셨어요. 소원이 꼭 이뤄지길 바랍니다.', 5000);
+    else { store.set('stone', today); setStones(stoneN + 1); toast('돌 하나를 얹었어요. 당신의 소원이 이뤄지길 바랍니다.', 6500); }
+  } finally { stoneBusy = false; }
+}
+
+// 강가 양 끝의 솟대. 나무 오리가 소원을 하늘에 전한다
+function makeSotdae() {
+  const g = new THREE.Group(), wood = lam('#7d5f42'), duckM = lam('#b48a5c');
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.08, 6, 5), wood); pole.position.y = 3; g.add(pole);
+  const duck = new THREE.Group(); duck.position.y = 6.02; g.add(duck);
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6), duckM); body.scale.set(1.7, 0.7, 0.75); duck.add(body);
+  const head = new THREE.Group(); head.position.set(0.3, 0.2, 0); duck.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), duckM));
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.16, 5), lam('#8a6a48')); beak.rotation.z = -Math.PI / 2; beak.position.x = 0.15; head.add(beak);
+  const tail = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.2, 4), duckM); tail.rotation.z = Math.PI / 2 + 0.5; tail.position.set(-0.36, 0.06, 0); duck.add(tail);
+  g.userData = { duck, head }; return g;
+}
+const SOTDAE_SAY = ['솟대 오리가 당신의 소원을 하늘에 전하러 고개를 들었어요', '이 강가에 온 이들이 무탈하기를', '솟대가 마을을 지키듯, 당신의 하루도 지켜 주기를', '나무 오리가 바람을 타고 좋은 소식을 물어 올 거예요'];
+const sotdae = [[44, 1.7], [-44.6, 1.9], [52, -45.4], [-52.5, -45.2]].map(([x, z], i) => {
+  const g = makeSotdae(); g.position.set(x, z < -20 ? 0.6 : 0.25, z); g.rotation.set(0, (z < -20 ? Math.PI : 0) + (x > 0 ? 0.6 : -0.6) + Math.PI / 2, (i % 2 ? 1 : -1) * 0.03); scene.add(g);
+  return { g, nod: 0, ph: i * 1.7 };
+});
+function pokeSotdae(sd) { sd.nod = 2.4; sfx.call('clack', 0, 0.5); toast(SOTDAE_SAY[Math.floor(Math.random() * SOTDAE_SAY.length)], 5000); }
+
+// 십장생: 해, 산, 물, 돌, 구름, 소나무, 거북, 학, 사슴. 강가에서 만난 것을 모은다
+const LONGEVITY = [['日', '해'], ['山', '산'], ['水', '물'], ['石', '돌'], ['雲', '구름'], ['松', '소나무'], ['龜', '거북'], ['鶴', '학'], ['鹿', '사슴']];
+const seenLong = new Set((store.get('longevity', []) || []).filter(c => LONGEVITY.some(l => l[0] === c)));
+const josa = w => (w.charCodeAt(w.length - 1) - 0xac00) % 28 ? '을' : '를';
+function renderLong() {
+  const row = $('longRow'); if (!row) return;
+  row.querySelector('b').textContent = `${seenLong.size}/9`;
+  row.querySelectorAll('[data-ch]').forEach(el => el.classList.toggle('on', seenLong.has(el.dataset.ch)));
+}
+{
+  const row = $('longRow'), box = row.querySelector('span.chips');
+  LONGEVITY.forEach(([ch, nm]) => { const el = document.createElement('i'); el.dataset.ch = ch; el.textContent = ch; el.title = nm; box.appendChild(el); });
+}
+function meetLong(ch, quiet) {
+  if (seenLong.has(ch)) return;
+  seenLong.add(ch); store.set('longevity', [...seenLong]); renderLong();
+  if (quiet) return;
+  if (seenLong.size === LONGEVITY.length) {
+    toast('십장생을 모두 만났어요. 오래오래 평안하소서.', 8000);
+    const c = npcPick(); if (c) npcSay(c, '허허, 십장생을 다 만났구려. 오래오래 평안하시오', 6);
+  } else { const nm = LONGEVITY.find(l => l[0] === ch)[1]; toast(`십장생 중 ${nm}${josa(nm)} 만났어요 · ${seenLong.size}/9`, 4500); }
+}
+['山', '水', '石', '雲', '松'].forEach(c => meetLong(c, true));
+renderLong();
+
+// 학: 가끔 하늘을 천천히 건너가거나, 강 가운데 내려앉아 한참 서 있다 간다
+function makeCrane() {
+  const g = new THREE.Group(), white = lam('#f4f1ea'), black = lam('#26252a'), red = lam('#c8322a');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.34, 10, 8), white); body.scale.set(1.5, 0.75, 0.75); g.add(body);
+  const tailM = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.42, 5), black); tailM.rotation.z = Math.PI / 2 + 0.35; tailM.position.set(-0.5, 0.02, 0); g.add(tailM);
+  const neck = new THREE.Group(); neck.position.set(0.4, 0.1, 0); g.add(neck);
+  const n1 = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.75, 6), black); n1.position.y = 0.37; neck.add(n1);
+  const head = new THREE.Group(); head.position.y = 0.76; neck.add(head);
+  head.add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), white));
+  const crown = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 5), red); crown.position.set(0, 0.06, 0); head.add(crown);
+  const bill = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.24, 5), lam('#7a7a5a')); bill.rotation.z = -Math.PI / 2; bill.position.x = 0.16; head.add(bill);
+  const legs = [-0.07, 0.07].map(z => { const l = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.95, 4), black); l.geometry.translate(0, -0.47, 0); l.position.set(-0.05, -0.15, z); g.add(l); return l; });
+  const wings = [1, -1].map(sd => {
+    const piv = new THREE.Group(); piv.position.set(0.05, 0.12, sd * 0.18); g.add(piv);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.03, 1.15), white); w.position.z = sd * 0.58; piv.add(w);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.035, 1.1), black); tip.position.set(-0.3, 0, sd * 0.6); piv.add(tip);
+    piv.userData.sd = sd; return piv;
+  });
+  g.userData = { neck, legs, wings }; g.visible = false; scene.add(g); return g;
+}
+const crane = makeCrane();
+let craneRun = null, nextCrane = BLESS_Q.has('crane') ? 4 : rand(150, 300);
+function startCrane() {
+  const f = FLIP(), side = Math.random() < 0.5 ? 1 : -1, land = Math.random() < 0.55 || BLESS_Q.get('crane') === 'land';
+  const gx = me.position.x + (Math.random() < 0.5 ? 1 : -1) * rand(4, 10), gz = me.position.z - f * rand(11, 16); // 내 몸에 가리지 않게 옆으로 비켜 앉는다
+  craneRun = land
+    ? { mode: 'land', t: 0, from: new THREE.Vector3(gx - side * 40, 9, gz - f * 6), to: new THREE.Vector3(gx, 0, gz), stay: rand(40, 60), side, said: false }
+    : { mode: 'fly', t: 0, x: me.position.x - side * 60, y: rand(7, 9.5), z: me.position.z - f * rand(14, 26), side, said: false };
+  crane.visible = true; crane.scale.setScalar(1.6);
+}
+function flap(u, k, amp) { u.wings.forEach(w => { w.scale.z = 1; w.rotation.x = w.userData.sd * Math.sin(k) * amp; }); }
+function updateCrane(dt) {
+  if (!craneRun) { nextCrane -= dt; if (nextCrane <= 0) { nextCrane = rand(240, 480); startCrane(); } return; }
+  const r = craneRun, u = crane.userData; r.t += dt;
+  if (r.t > 2 && !r.met) { r.met = true; meetLong('鶴'); }
+  if (r.mode === 'fly') {
+    r.x += r.side * 3.6 * dt; crane.position.set(r.x, r.y + Math.sin(r.t * 0.7) * 0.4, r.z); crane.rotation.set(0, r.side > 0 ? 0 : Math.PI, 0);
+    flap(u, r.t * 6.5, 0.55); u.neck.rotation.z = -1.25; u.legs.forEach(l => { l.rotation.z = 1.45; });
+    if (!r.said && r.t > 6) { r.said = true; sfx.call('crane', 0, 0.8); }
+    if (Math.abs(r.x - me.position.x) > 62 && r.t > 5) { crane.visible = false; craneRun = null; }
+    return;
+  }
+  const IN = 7, OUT = 6;
+  if (r.t < IN) { // 내려앉는다
+    const k = r.t / IN, e = 1 - Math.pow(1 - k, 2);
+    crane.position.lerpVectors(r.from, r.to, e); crane.position.y = r.from.y * Math.pow(1 - k, 1.6) + 0.55 * k;
+    crane.rotation.set(0, r.side > 0 ? 0 : Math.PI, 0); flap(u, r.t * 6, 0.6 * (1 - k) + 0.15);
+    u.neck.rotation.z = -1.1 * (1 - k); u.legs.forEach(l => { l.rotation.z = 1.3 * (1 - k); });
+    if (k > 0.97 && !r.splash) { r.splash = true; ripple({ x: r.to.x, z: r.to.z }, 0.8); }
+  } else if (r.t < IN + r.stay) { // 강 한가운데 서서 세월을 본다
+    const s = r.t - IN; crane.position.set(r.to.x, 0.55, r.to.z); flap(u, 0, 0);
+    u.wings.forEach(w => { w.scale.z = 0.32; w.rotation.x = -w.userData.sd * 0.15; }); // 날개를 몸에 붙여 접는다
+    u.neck.rotation.z = Math.sin(s * 0.4) > 0.85 ? -0.9 : Math.sin(s * 0.9) * 0.08; // 가끔 고개 숙여 물을 본다
+    crane.rotation.y = (r.side > 0 ? 0 : Math.PI) + Math.sin(s * 0.15) * 0.6;
+    if (!r.said && s > 3) { r.said = true; sfx.call('crane', 0, 0.9); const c = npcPick(); if (c) npcSay(c, '학이 내려왔구려. 오래 살라는 뜻이오', 5); }
+    if (Math.random() < dt * 0.25) ripple({ x: r.to.x, z: r.to.z }, 0.35);
+  } else { // 다시 날아간다
+    const k = (r.t - IN - r.stay) / OUT;
+    crane.position.set(r.to.x + r.side * k * k * 40, 0.55 + 9 * k * k, r.to.z); crane.rotation.set(0, r.side > 0 ? 0 : Math.PI, 0);
+    flap(u, r.t * 7, 0.6); u.neck.rotation.z = -1.2 * Math.min(1, k * 3); u.legs.forEach(l => { l.rotation.z = 1.4 * Math.min(1, k * 3); });
+    if (k >= 1) { crane.visible = false; craneRun = null; }
+  }
+}
+function pokeCrane() {
+  say(crane, '(뚜루루)', 2.5); sfx.call('crane', 0, 1);
+  if (!store.get('craneBless', false)) { store.set('craneBless', true); toast('학이 당신의 장수를 빌어 주었어요', 5000); }
+}
+
+// 까치: 가까운 나무에 날아와 앉아 깍깍 울고 간다. 반가운 손님이 오면 먼저 알린다
+function makeMagpie() {
+  const g = new THREE.Group(), blk = lam('#1d2230'), wht = lam('#eef0f2');
+  const body = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 6), blk); body.scale.set(1.45, 0.85, 0.85); g.add(body);
+  const belly = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 6), wht); belly.scale.set(1.2, 0.8, 1.05); belly.position.set(-0.02, -0.05, 0); g.add(belly);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), blk); head.position.set(0.21, 0.08, 0); g.add(head);
+  const beak = new THREE.Mesh(new THREE.ConeGeometry(0.025, 0.1, 4), blk); beak.rotation.z = -Math.PI / 2; beak.position.set(0.33, 0.07, 0); g.add(beak);
+  const tail = new THREE.Group(); tail.position.set(-0.18, 0.02, 0); g.add(tail);
+  const tm = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.025, 0.09), lam('#24304a')); tm.position.x = -0.23; tail.add(tm);
+  const wings = [1, -1].map(sd => {
+    const piv = new THREE.Group(); piv.position.set(0.02, 0.06, sd * 0.1); g.add(piv);
+    const w = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.02, 0.36), blk); w.position.z = sd * 0.18; piv.add(w);
+    const patch = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.025, 0.18), wht); patch.position.set(0.04, 0.005, sd * 0.14); piv.add(patch);
+    piv.userData.sd = sd; return piv;
+  });
+  g.userData = { tail, wings }; g.visible = false; scene.add(g); return g;
+}
+const magpie = makeMagpie();
+// 물가 큰 버드나무의 가지 끝들. 이쪽 둑 뒤편 나무는 카메라 뒤라 잘 안 보인다
+const WILLOW_PERCHES = [{ x: -5.2, z: 0.9, top: 4.7, bare: 4.3 }, { x: -9, z: 1.2, top: 4.6, bare: 4.2 }, { x: -7.1, z: 0.9, top: 5.9, bare: 4.4 }];
+let magRun = null, nextMag = BLESS_Q.has('magpie') ? 3 : rand(45, 100);
+function magpieSoon() { if (!magRun) nextMag = Math.min(nextMag, 2.5); }
+function startMagpie() {
+  const yOf = p => curSeason === 3 ? p.bare : p.top;
+  // 지금 화면에 보이는 가지 가운데 가까운 것. 강 건너 나무밖에 없으면 거기라도
+  const seen = [...WILLOW_PERCHES, ...PERCHES].map(p => {
+    tmpV.set(p.x, yOf(p), p.z); const d = tmpV.distanceTo(camera.position); tmpV.project(camera);
+    return { p, d, ok: tmpV.z < 1 && Math.abs(tmpV.x) < 0.8 && tmpV.y < 0.75 && tmpV.y > -0.5 };
+  }).filter(o => o.ok).sort((a, b) => a.d - b.d).slice(0, 2);
+  const pick = seen[Math.floor(Math.random() * seen.length)]; if (!pick) { nextMag = 30; return; }
+  const p = pick.p;
+  const y = yOf(p), side = Math.random() < 0.5 ? 1 : -1;
+  magRun = { t: 0, stage: 'in', perch: new THREE.Vector3(p.x, y, p.z), from: new THREE.Vector3(p.x + side * 26, y + 7, p.z + rand(-6, 6)), side, sit: rand(9, 15), calls: [rand(0.6, 1.5), rand(4, 6), rand(7.5, 9)] };
+  magpie.visible = true; magpie.scale.setScalar(Math.min(4.5, 2 * Math.max(1, pick.d / 16)));
+}
+function updateMagpie(dt) {
+  if (!magRun) { nextMag -= dt; if (nextMag <= 0) { nextMag = rand(150, 320); startMagpie(); } return; }
+  const r = magRun, u = magpie.userData; r.t += dt;
+  const face = v => { magpie.rotation.y = Math.atan2(-v.z, v.x); };
+  if (r.stage === 'in') {
+    const k = Math.min(1, r.t / 3.6), e = 1 - Math.pow(1 - k, 2);
+    magpie.position.lerpVectors(r.from, r.perch, e); magpie.position.y += Math.sin(k * Math.PI) * 1.2;
+    face(tmpV.subVectors(r.perch, r.from)); u.wings.forEach(w => { w.rotation.x = w.userData.sd * Math.sin(r.t * 22) * 0.8; });
+    if (k >= 1) { r.stage = 'sit'; r.t = 0; magpie.rotation.y = r.side > 0 ? 0 : Math.PI; }
+  } else if (r.stage === 'sit') {
+    magpie.position.copy(r.perch); u.wings.forEach(w => { w.rotation.x = w.userData.sd * 0.15; });
+    u.tail.rotation.z = Math.sin(r.t * 5) > 0.8 ? 0.35 : 0.08; // 꽁지를 까딱
+    if (Math.sin(r.t * 1.3) > 0.97) magpie.rotation.y += Math.PI * 0.5 * dt * 20; // 두리번
+    r.calls.forEach((c, i) => { if (c > 0 && r.t >= c) { r.calls[i] = -1; const pan = Math.max(-1, Math.min(1, (r.perch.x - me.position.x) / 20)); sfx.call('magpie', pan, Math.max(0.4, 1 - Math.abs(r.perch.x - me.position.x) / 40)); say(magpie, '깍깍', 1.6); } });
+    if (r.t >= r.sit) { r.stage = 'out'; r.t = 0; r.to = new THREE.Vector3(r.perch.x - r.side * 30, r.perch.y + 8, r.perch.z + rand(-6, 6)); }
+  } else {
+    const k = Math.min(1, r.t / 3.2);
+    magpie.position.lerpVectors(r.perch, r.to, k * k); face(tmpV.subVectors(r.to, r.perch));
+    u.wings.forEach(w => { w.rotation.x = w.userData.sd * Math.sin(r.t * 22) * 0.8; });
+    if (k >= 1) { magpie.visible = false; magRun = null; }
+  }
+}
+function pokeMagpie() {
+  if (!magRun || magRun.stage !== 'sit') return;
+  sfx.call('magpie', 0, 1); say(magpie, '깍!', 1.4); magRun.t = magRun.sit;
+  murmur('까치가 반가운 소식을 물어다 줄 거예요');
+}
+
+// 보름달: 실제 음력 보름 무렵엔 달이 크게 뜬다. 정월대보름과 한가위엔 이름도 불러 준다
+function lunarNow() {
+  const syn = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14), now = Date.now();
+  const age = (((now - ref) / 864e5) % syn + syn) % syn, nm = now - age * 864e5;
+  const kd = ms => Math.floor((ms + 9 * 36e5) / 864e5), day = kd(now) - kd(nm) + 1;
+  const nd = new Date(nm + 9 * 36e5), md = (nd.getUTCMonth() + 1) * 100 + nd.getUTCDate();
+  const fest = md >= 121 && md <= 220 ? '정월대보름' : md >= 823 && md <= 922 ? '한가위' : '';
+  return { day, fest, full: BLESS_Q.get('moon') === 'full' || (day >= 14 && day <= 16) };
+}
+let moonSaid = false;
+
+// 처음 온 사람에게 한 번씩 귀띔한다
+let blessT = 0;
+function updateBless(dt) {
+  updateLanterns(dt); updateCrane(dt); updateMagpie(dt);
+  sotdae.forEach(sd => {
+    const u = sd.g.userData; sd.nod = Math.max(0, sd.nod - dt);
+    u.duck.rotation.y = Math.sin(t * 0.3 + sd.ph) * 0.25 + (sd.nod > 0 ? Math.sin(sd.nod * 4) * 0.5 : 0);
+    u.head.rotation.z = sd.nod > 0 ? 0.5 * Math.sin(Math.min(1, sd.nod) * Math.PI) : 0;
+  });
+  if (cairn.userData.pop) { cairn.userData.pop = Math.max(0, cairn.userData.pop - dt * 2.5); cairn.scale.y = 1 + Math.sin(cairn.userData.pop * Math.PI) * 0.08; }
+  blessT += dt;
+  if (blessT > 1) {
+    const e = blessT; blessT = 0;
+    if (night < 0.35) meetLong('日', true);
+    const c = npcPick();
+    if (S.session > 0 && e) {
+      if (!store.get('hintStone', false) && performance.now() > 95000) { store.set('hintStone', true); c ? npcSay(c, '건너편 산 아래 돌탑이 보이오? 눌러서 돌 하나 얹고 소원을 빌어 보시오', 7) : murmur('건너편 산 아래 돌탑을 눌러 돌 하나 얹어 보세요'); }
+      else if (!store.get('wished', false) && !store.get('hintWish', false) && performance.now() > 210000) { store.set('hintWish', true); c ? npcSay(c, '소원등에 두 글자 적어 강물에 띄워 보시오. 다 떠내려가면 또 띄울 수 있소', 7) : murmur('소원등에 두 글자를 적어 강물에 띄워 보세요'); }
+    }
+    if (!moonSaid && night > 0.6) {
+      const ln = lunarNow();
+      if (ln.full) { moonSaid = true; const msg = ln.fest ? `${ln.fest} 보름달이 떴구려. 소원등 하나 띄워 보시오` : '보름달이 떴구려. 소원 하나 빌어 보시오'; c ? npcSay(c, msg, 7) : toast(`${ln.fest || '보름'} 달이 떴어요. 소원등을 띄워 보세요`, 6000); }
+    }
+  }
 }
 
 function updateWild(dt) {
@@ -1177,6 +1583,7 @@ function updateWild(dt) {
   updateTea(dt);
   updateShark(dt);
   updateVisit(dt);
+  updateBless(dt);
   nextFlock -= dt;
   if (nextFlock <= 0) { nextFlock = rand(20, 45); if (flocks.length < 2) spawnFlock(); }
   for (let i = flocks.length - 1; i >= 0; i--) {
@@ -1405,7 +1812,8 @@ function applyLook() {
   sunLight.color.set(night > 0.5 ? '#9fb3ff' : w[2] > 0.5 ? '#fff0d6' : '#ffc07a');
   sun.position.y = 9 + w[2] * 22 + w[1] * 2; sun.material.opacity = (1 - night) * (1 - 0.85 * wK);
   mountainLook(L, w, br, s);
-  moon.material.opacity = night * (1 - 0.9 * wK); stars.material.opacity = night * 0.95 * (1 - wK);
+  const fullMoon = lunarNow().full; moon.scale.setScalar(fullMoon ? 17 : 11);
+  moon.material.opacity = night * (fullMoon ? 1 : 0.8) * (1 - 0.9 * wK); stars.material.opacity = night * 0.95 * (1 - wK);
   const tod = w.reduce((a, v, i) => v > w[a] ? i : a, 0);
   if (tod !== curTod) { curTod = tod; updateClock(); }
 }
@@ -1504,6 +1912,8 @@ function recordLedger() {
   $('rTitle').textContent = title; $('rDur').textContent = `이번에 적은 세월 ${fmt(d)}`; $('rText').textContent = text; $('rStamp').textContent = stamp;
   $('rShare').value = `반계 강가에서 곧은 바늘로 세월 ${fmt(d)}을 낚아 장부에 적었다. 조과: ${title}.`;
   $('result').hidden = false;
+  curBless = BLESS[Math.floor(Math.random() * BLESS.length)];
+  $('rBless').textContent = `덕담 · ${curBless[1]}(${curBless[0]}) — ${curBless[2]}`;
   prepCard(d, title, stamp);
   npcOnRecord();
   updateClock(); pushPresence(true);
@@ -1516,6 +1926,18 @@ $('result').onclick = e => { if (e.target.id === 'result') $('result').hidden = 
 // 세월 카드: 지금 강가 풍경 한 컷 위에 낚은 세월을 적은 4:5 이미지. 폰에선 바로 공유, PC에선 저장
 const SITE_URL = 'https://studio-meot.github.io/sewol/';
 let cardJob = null;
+// 세월 카드에 찍어 주는 덕담
+const BLESS = [
+  ['壽福康寧', '수복강녕', '오래 살고 복되며 몸과 마음이 편안하기를'],
+  ['萬事亨通', '만사형통', '하는 일마다 술술 풀리기를'],
+  ['無病長壽', '무병장수', '아픈 데 없이 오래오래'],
+  ['所願成就', '소원성취', '바라는 일이 꼭 이루어지기를'],
+  ['安過太平', '안과태평', '탈 없이 평안하게 지나가기를'],
+  ['吉祥如意', '길상여의', '좋은 일이 뜻대로 찾아오기를'],
+  ['笑門萬福', '소문만복', '웃는 집에 복이 가득하기를'],
+  ['心想事成', '심상사성', '마음먹은 일이 그대로 이루어지기를']
+];
+let curBless = null;
 async function makeCard(d, title, stamp) {
   const W = 1080, H = 1350, PH = 860, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d');
@@ -1534,6 +1956,16 @@ async function makeCard(d, title, stamp) {
   g.fillStyle = '#d9583b'; g.beginPath(); g.roundRect ? g.roundRect(56, 56, 72, 72, 14) : g.rect(56, 56, 72, 72); g.fill();
   g.fillStyle = '#fff4e6'; g.font = '700 40px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('渭', 92, 94);
   g.textAlign = 'left'; g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 14; g.fillStyle = '#f3e6cc'; g.font = '700 40px "Gowun Batang", serif'; g.fillText('세월낚시터', 150, 94); g.shadowBlur = 0;
+  // 오른쪽 위 덕담 낙관
+  if (curBless) {
+    g.save(); g.translate(W - 120, 104); g.rotate(0.04); g.globalAlpha = 0.93; g.fillStyle = '#c8452f';
+    g.beginPath(); g.roundRect ? g.roundRect(-52, -52, 104, 104, 10) : g.rect(-52, -52, 104, 104); g.fill();
+    g.fillStyle = '#fff1e0'; g.font = '700 40px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    const ch = [...curBless[0]]; [[24, -23], [24, 25], [-24, -23], [-24, 25]].forEach(([x, y], i) => g.fillText(ch[i], x, y)); // 오른쪽 줄부터 위에서 아래로
+    g.restore();
+    g.save(); g.textAlign = 'right'; g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 12; g.fillStyle = '#f3e6cc'; g.font = '400 26px "Gowun Dodum", sans-serif';
+    g.fillText(curBless[2], W - 68, 196); g.restore();
+  }
   g.textBaseline = 'alphabetic';
   // 본문
   const L = 72;
@@ -1665,7 +2097,13 @@ const sfx = (() => {
     },
     egret(p, v) { voice({ f0: 380, f1: 250, dur: 0.34, vol: 0.08 * v, type: 'sawtooth', bp: 700, q: 2, att: 0.02, pan: p }); },
     honk(p, v) { const k = 1 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 540, f1: 440, dur: 0.2, vol: 0.06 * v, type: 'sawtooth', bp: 1000, q: 4, at: i * 0.3, att: 0.03, pan: p }); },
-    caw(p, v) { const k = 2 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 640, f1: 470, dur: 0.28, vol: 0.06 * v, type: 'sawtooth', bp: 1300, q: 1.5, at: i * 0.42, att: 0.02, pan: p }); }
+    caw(p, v) { const k = 2 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 640, f1: 470, dur: 0.28, vol: 0.06 * v, type: 'sawtooth', bp: 1300, q: 1.5, at: i * 0.42, att: 0.02, pan: p }); },
+    // 까치: 짧고 거친 깍깍
+    magpie(p, v) { const k = 3 + rnd(3); for (let i = 0; i < k; i++) voice({ f0: 1350, f1: 980, dur: 0.075, vol: 0.075 * v, type: 'sawtooth', bp: 1900, q: 1.8, at: i * 0.13 + (i > 2 ? 0.25 : 0), att: 0.008, pan: p }); },
+    // 학: 멀리 퍼지는 뚜루루
+    crane(p, v) { [0, 0.34].forEach((at, i) => voice({ f0: i ? 1180 : 960, f1: i ? 900 : 1180, dur: 0.32, vol: 0.06 * v, type: 'triangle', bp: 1200, q: 1.2, at, att: 0.05, pan: p })); voice({ f0: 1100, f1: 1000, dur: 0.5, vol: 0.03 * v, type: 'triangle', at: 0.75, att: 0.05, pan: p }); },
+    // 돌이 맞닿는 소리
+    clack(p, v) { voice({ f0: 1700, f1: 1300, dur: 0.05, vol: 0.06 * v, type: 'square', bp: 2200, q: 3, pan: p }); voice({ f0: 1400, f1: 1100, dur: 0.06, vol: 0.05 * v, type: 'square', bp: 1800, q: 3, at: 0.12, pan: p }); }
   };
   function tone(f0, f1, dur, vol, type = 'sine') {
     if (!ctx || !on) return;
@@ -1958,6 +2396,7 @@ function syncPeers(list) {
     const seat = assign.get(p.peer), away = seat.bank !== S.bank; // 강 건너 멀리 앉은 사람은 조금 크게, 이름표는 작게
     o.tag.classList.toggle('far', away);
     seatOn(o.g, seat.x, seat.z, seat.bank, away ? 1.5 : 1);
+    o.bank = seat.bank;
     o.lift = away && Math.floor((o.g.position.x + 100) / 4) % 2 ? 3.5 : 2.8;
     o.idx = i;
     const pr = p.presence || {};
@@ -1999,9 +2438,10 @@ function syncPeers(list) {
   for (const [peer, o] of others) if (!keep.has(peer)) {
     scene.remove(o.g, o.g.userData.line, o.g.userData.float); o.tag.remove();
     const b = bubbles.get(o.g); if (b) { b.el.remove(); bubbles.delete(o.g); }
-    others.delete(peer);
+    others.delete(peer); peerEmote.delete(peer);
   }
   setNpcCount(nNpc, skip);
+  if (arrived) magpieSoon();
   if (arrived && npcOn().length) npcSay(npcOn()[0], '새 벗이 오셨구려. 어서 앉으시오', 5);
   if (list.length) peersSeen = true;
 }
@@ -2083,6 +2523,7 @@ async function saveRemote() {
   }
   updateClock();
   loadLedger();
+  loadStones(); setInterval(loadStones, 120000);
   // 찾아온 날 한 줄. 같은 날 두 번째부터는 '이미 있음'으로 거절되고 그걸로 충분하다 (on conflict 는 읽기 권한이 없어 막힌다)
   if (S.uid) sb.from('visits').insert({ uid: S.uid, day: kstDay() }).then(() => {}, () => {});
   setInterval(() => { if (!ledger.hidden) loadLedger(); }, 30000);
@@ -2108,6 +2549,7 @@ async function saveRemote() {
         if (c !== chan || !payload || typeof payload.peer !== 'string' || !payload.em || typeof payload.em !== 'object') return;
         peerEmote.set(payload.peer, payload.em); syncPeers(withGrace(freshPeers));
       });
+      c.on('broadcast', { event: 'lantern' }, ({ payload }) => { if (c === chan) peerLantern(payload); });
       c.subscribe(status => {
         if (c !== chan) return;
         if (status === 'SUBSCRIBED') { S.chan = c; pushPresence(true); }
