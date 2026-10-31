@@ -1205,6 +1205,7 @@ function pickAt(cx, cy) {
   sotdae.forEach(sd => cands.push({ obj: sd.g, y: 6, r: 60, hit: () => pokeSotdae(sd) }));
   if (crane.visible) cands.push({ obj: crane, y: 0.4, r: 70, hit: pokeCrane });
   if (magpie.visible) cands.push({ obj: magpie, y: 0, r: 60, hit: pokeMagpie });
+  lanterns.forEach(L => { if (L.owner === 'blank' && L.t < LANTERN_LIFE - 3) cands.push({ obj: L.g, y: 0.36, r: 48, hit: () => pickBlank(L) }); });
   [me, ...[...others.values()].map(o => o.g)].forEach(a => { const b = a.userData.perch; if (b && b.visible && !b.userData.fly) cands.push({ obj: b, world: true, y: 0, r: 34, hit: () => shooPerch(b, a === me) }); });
   let best = null, bd = Infinity;
   for (const c of cands) {
@@ -1277,7 +1278,7 @@ function wishTex(word) {
     g.fillStyle = gr; g.beginPath(); g.roundRect ? g.roundRect(24, 18, 80, 124, 20) : g.rect(24, 18, 80, 124); g.fill();
     g.fillStyle = '#7a3322'; g.fillRect(32, 10, 64, 10); g.fillRect(32, 140, 64, 10);
     g.fillStyle = '#5a1f12'; g.font = '700 40px "Gowun Batang", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillText(word[0], 64, 57); g.fillText(word[1], 64, 104);
+    if (word) { g.fillText(word[0], 64, 57); g.fillText(word[1], 64, 104); }
     tex.needsUpdate = true;
   };
   draw(); if (document.fonts) document.fonts.load('700 40px "Gowun Batang"').then(draw, () => {});
@@ -1311,7 +1312,20 @@ function updateLanterns(dt) {
       if (L.owner === 'me') { $('btnWish').classList.remove('cool'); murmur('등불이 먼 물굽이를 돌아 사라졌어요. 다시 띄울 수 있어요.'); }
     }
   }
-  // 이웃 낚시꾼도 가끔 등을 띄운다
+  // 아무도 등을 띄우지 않을 땐 가끔 빈 등 하나가 위에서 떠내려온다
+  if (lanterns.length) blankT = Math.max(blankT, rand(120, 240));
+  else if ((blankT -= dt) <= 0) {
+    blankT = rand(120, 240);
+    spawnLantern('', me.position.x - 14, RIVER_MID + (S.bank === 'far' ? -4 : 4) + rand(-2, 2), 'blank');
+  }
+}
+let blankT = new URLSearchParams(location.search).has('blank') ? 2 : rand(60, 150);
+// 빈 등을 건지면 소원을 적어 띄울 수 있게 등 고르는 칸을 열어 준다
+function pickBlank(L) {
+  L.t = Math.max(L.t, LANTERN_LIFE - 2.5); sfx.call('clink', 0, 0.5);
+  if (lanterns.some(o => o.owner === 'me')) { toast('빈 등을 건졌어요. 띄운 등이 다 떠내려가면 소원을 적어 띄울 수 있어요.', 5000); return; }
+  toast('빈 등을 건졌어요. 소원 하나 적어 띄워 보시겠소?', 5000);
+  $('wishPick').hidden = false; pulse('btnWish');
 }
 // 낚시꾼 앞 물 위 한 점: 찌가 떠 있으면 찌 곁, 아니면 발 앞 물가
 function waterIn(g, float, side) {
@@ -2653,7 +2667,7 @@ async function saveRemote() {
 })();
 
 // 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
-if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern };
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns };
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
