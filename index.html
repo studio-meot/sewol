@@ -413,12 +413,12 @@ glint.rotation.x = -Math.PI / 2; glint.position.set(-12, 0.12, -62); glint.rotat
 
 // mountains (ink-wash layers)
 function ridge(z, h, base, seed, color) {
-  const sh = new THREE.Shape(); sh.moveTo(-260, -2);
-  for (let x = -260; x <= 260; x += 4) {
+  const sh = new THREE.Shape(); sh.moveTo(-700, -2);
+  for (let x = -700; x <= 700; x += 4) {
     const y = base + h * (0.55 + 0.45 * Math.sin(x * 0.021 + seed) * Math.sin(x * 0.007 + seed * 2.3) + 0.18 * Math.sin(x * 0.09 + seed * 5));
     sh.lineTo(x, Math.max(0, y));
   }
-  sh.lineTo(260, -2);
+  sh.lineTo(700, -2);
   const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), new THREE.MeshBasicMaterial({ color }));
   m.position.z = z; scene.add(m); return m;
 }
@@ -442,14 +442,14 @@ function vGradTex(stops) {
 // 1) 산과 산 사이의 안개 띠. 먼 산일수록 하늘에 묻힌다
 const mistTex = vGradTex([[0, 0], [0.45, 1], [0.75, 0.7], [1, 0]]);
 const mists = [[-72, 4, 12], [-112, 7, 18], [-150, 12, 24]].map(([z, y, h]) => {
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(560, h), new THREE.MeshBasicMaterial({ map: mistTex, transparent: true, depthWrite: false, fog: false, opacity: 0.5 }));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1400, h), new THREE.MeshBasicMaterial({ map: mistTex, transparent: true, depthWrite: false, fog: false, opacity: 0.5 }));
   m.position.set(0, y, z); scene.add(m); return m;
 });
 // 2) 산자락의 잎 무리: 봄 산벚, 여름 초록, 가을 단풍. 겨울엔 진다. 겨울 봉우리엔 눈
 const FOLIAGE = [['#f2c4cf', '#e9b0c0', '#f7dbe2', '#eac0c8'], ['#5d7d4a', '#6b8f52', '#4f6e40', '#76955a'], ['#c0522e', '#d9862f', '#b9372a', '#e0a43a'], null];
 const foliage = [];
 const leafTex = radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
-[[2, 260], [1, 200]].forEach(([ri, n]) => {
+[[2, 700], [1, 200]].forEach(([ri, n]) => {
   const z = RIDGE_P[ri][0];
   for (let k = 0; k < n; k++) {
     const x = (Math.random() - 0.5) * 300, top = ridgeTop(ri, x); if (top < 2) continue;
@@ -461,9 +461,9 @@ const leafTex = radialTex('rgba(255,255,255,1)', 'rgba(255,255,255,0)');
 });
 const snowMat = new THREE.MeshBasicMaterial({ color: '#f2f4f8' });
 const snowCaps = [0, 1, 2, 3, 4].map(ri => {
-  const [z] = RIDGE_P[ri]; let mx = 0; for (let x = -260; x <= 260; x += 4) mx = Math.max(mx, ridgeTop(ri, x));
+  const [z] = RIDGE_P[ri]; let mx = 0; for (let x = -700; x <= 700; x += 4) mx = Math.max(mx, ridgeTop(ri, x));
   const thr = mx * 0.62, pos = [];
-  for (let x = -260; x < 260; x += 4) {
+  for (let x = -700; x < 700; x += 4) {
     const y0 = ridgeTop(ri, x), y1 = ridgeTop(ri, x + 4);
     const d0 = Math.max(0, (y0 - thr) * 0.75), d1 = Math.max(0, (y1 - thr) * 0.75);
     if (!d0 && !d1) continue;
@@ -540,32 +540,34 @@ function updateMountains(dt) {
   lantern.scale.setScalar(4.2 + Math.sin(t * 2.3) * 0.25);
 }
 // far shore
-const farShore = new THREE.Mesh(new THREE.BoxGeometry(520, 1.2, 14), lam('#6b6048')); farShore.position.set(0, 0, -48); scene.add(farShore);
+const farShore = new THREE.Mesh(new THREE.BoxGeometry(1100, 1.2, 14), lam('#6b6048')); farShore.position.set(0, 0, -48); scene.add(farShore);
 
 // ground (our bank)
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(240, 60, 60, 16), lam('#8f8a4e'));
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(1100, 60, 270, 16), lam('#8f8a4e')); // 좌우로 안개 너머까지 이어져 끝이 보이지 않는다
 ground.geometry.rotateX(-Math.PI / 2);
 { const p = ground.geometry.attributes.position; for (let i = 0; i < p.count; i++) { const z = p.getZ(i); p.setY(i, z > -29 ? Math.random() * 0.12 + Math.max(0, (z + 30 - 14)) * 0.02 : 0); } ground.geometry.computeVertexNormals(); }
 ground.position.set(0, 0.25, 29.6); scene.add(ground);
-const bankEdge = new THREE.Mesh(new THREE.BoxGeometry(240, 0.7, 0.8), lam('#5b4632')); bankEdge.position.set(0, -0.05, -0.15); scene.add(bankEdge);
+const bankEdge = new THREE.Mesh(new THREE.BoxGeometry(1100, 0.7, 0.8), lam('#5b4632')); bankEdge.position.set(0, -0.05, -0.15); scene.add(bankEdge);
 // stones along bank
-for (let i = 0; i < 46; i++) {
+for (let i = 0; i < 110; i++) {
   const s = new THREE.Mesh(new THREE.DodecahedronGeometry(0.18 + Math.random() * 0.3), lam(i % 3 ? '#7a7066' : '#8d8276'));
-  s.position.set(-40 + Math.random() * 80, 0.15, -0.4 + Math.random() * 0.8); s.scale.y = 0.55; s.rotation.y = Math.random() * 6; scene.add(s);
+  s.position.set(i < 46 ? -40 + Math.random() * 80 : (i % 2 ? 1 : -1) * (40 + Math.random() * 140), 0.15, -0.4 + Math.random() * 0.8); s.scale.y = 0.55; s.rotation.y = Math.random() * 6; scene.add(s);
 }
 
 // water
 const waterGeo = new THREE.PlaneGeometry(260, 110, 110, 46); waterGeo.rotateX(-Math.PI / 2);
 const water = new THREE.Mesh(waterGeo, new THREE.MeshPhongMaterial({ color: '#3f5d63', specular: '#ffcf8a', shininess: 70, flatShading: true, transparent: true, opacity: 0.88 }));
 water.position.set(0, 0, -55); scene.add(water);
+// 출렁이는 물 바깥으로 잔잔한 물을 이어 붙여 강이 좌우로 끝없이 흘러가 보이게 한다
+const waterWings = [-1, 1].map(sd => { const m = new THREE.Mesh(new THREE.PlaneGeometry(440, 110).rotateX(-Math.PI / 2), water.material); m.position.set(sd * 349, -0.02, -55); scene.add(m); return m; });
 const wBase = Float32Array.from(waterGeo.attributes.position.array);
 
 // reeds
 const reeds = [];
 {
   const g = new THREE.ConeGeometry(0.035, 1.6, 4); g.translate(0, 0.8, 0);
-  for (let i = 0; i < 90; i++) {
-    const x = -38 + Math.random() * 76;
+  for (let i = 0; i < 190; i++) {
+    const x = i < 90 ? -38 + Math.random() * 76 : (i % 2 ? 1 : -1) * (38 + Math.random() * 130);
     if (Math.abs(x - 1.9) < 1.8) continue;
     const r = new THREE.Mesh(g, lam(i % 2 ? '#8c8a4a' : '#a49a5a'));
     r.position.set(x, -0.1, -0.5 - Math.random() * 1.6); r.scale.y = 0.6 + Math.random() * 0.9; r.userData.ph = Math.random() * 6;
@@ -619,7 +621,10 @@ function makeTree(kind, h) {
   // 이쪽 둑 [종류, x, z, 크기]. 드문드문, 서로 멀찍이
   ['round', -18, 6.8, 1.0], ['pine', 21, 7.6, 1.15], ['willow', 36, 6.2, 1.0], ['pine', -35, 6.6, 1.05],
   // 건너편 둑. 건너편에 앉으면 카메라가 이 둑 위에 오므로 가운데(|x|<10)는 비워 둔다
-  ['willow', -15, -45.8, 1.05], ['pine', 17, -47, 1.1], ['round', 33, -47.5, 1.05], ['pine', -32, -48, 1.15]
+  ['willow', -15, -45.8, 1.05], ['pine', 17, -47, 1.1], ['round', 33, -47.5, 1.05], ['pine', -32, -48, 1.15],
+  // 강가가 좌우로 계속 이어지도록 멀리 드문드문
+  ['pine', -58, 8.4, 1.1], ['round', 64, 7.8, 1.0], ['willow', -86, 6.4, 1.05], ['pine', 92, 8.8, 1.2], ['round', -120, 7.6, 1.1], ['pine', 135, 7, 1.05],
+  ['round', -60, -47.4, 1.0], ['pine', 70, -47.8, 1.1], ['pine', -98, -47, 1.15], ['willow', 108, -46.2, 1.0], ['round', 150, -47.6, 1.1]
 ].forEach(([kind, x, z, h]) => { const t = makeTree(kind, h); t.position.set(x, z < -20 ? 0.6 : 0.25, z); t.rotation.y = Math.random() * 6; scene.add(t); });
 
 // particles by season
@@ -1596,7 +1601,7 @@ function emote(kind) {
     if (kind === 'wave') me.userData.waveT = 2.8;
   }
   myEmote = { k: kind, i, n: ++emoteSeq, to, give };
-  pushPresence(true);
+  sendEmote();
   npcReact(kind);
 }
 let myEmote = null;
@@ -1735,14 +1740,22 @@ S.tabId = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(
 
 const others = new Map(); // peer -> {g, tag, data}
 const names = new Map();  // uid -> nickname
-let lastPresence = 0;
+// 실시간 서버는 한 사람이 1분에 네댓 번 넘게 상태를 바꾸면 연결을 끊어 버린다 (그래서 사람들이 사라졌다 나타났다).
+// 상태는 16초에 한 번까지만 보내고, 그 사이 바뀐 건 모아서 한 번에. 몸짓(차, 인사, 시)은 상태가 아니라 방송으로 보낸다.
+let lastPresence = -1e9, presenceTimer = 0;
+const PRESENCE_GAP = 16000;
 function pushPresence(force) {
   if (!S.chan) return;
-  const now = performance.now();
-  if (!force && now - lastPresence < 4000) return;
+  const now = performance.now(), wait = PRESENCE_GAP - (now - lastPresence);
+  if (!force && now - lastPresence < 60000) return; // 수염 자라는 정도라 1분에 한 번이면 충분하다
+  if (wait > 0) { if (!presenceTimer) presenceTimer = setTimeout(() => { presenceTimer = 0; pushPresence(true); }, wait); return; }
   lastPresence = now;
-  S.chan.track({ v: 1, name: S.name, fishing: S.fishing, days: Math.floor(S.session), total: Math.floor(S.total), emote: myEmote, uid: S.uid || null, bank: S.bank }).catch(() => {});
+  S.chan.track({ v: 1, name: S.name, fishing: S.fishing, days: Math.floor(S.session), total: Math.floor(S.total), uid: S.uid || null, bank: S.bank }).catch(() => {});
 }
+function sendEmote() {
+  if (S.chan) S.chan.send({ type: 'broadcast', event: 'emote', payload: { peer: S.tabId, em: myEmote } }).catch(() => {});
+}
+const peerEmote = new Map(); // peer -> 마지막으로 받은 몸짓
 function makeTag(cls) { const el = document.createElement('div'); el.className = 'tag ' + (cls || ''); el.innerHTML = '<span class="nm"><span></span><i></i></span>'; $('tags').appendChild(el); return el; }
 const myTag = makeTag('me');
 const setMyTag = () => { myTag.querySelector('.nm > span').textContent = S.name; };
@@ -1766,9 +1779,9 @@ NPCS.forEach(c => {
 function placeNpcs() { const away = S.bank === 'far'; NPCS.forEach(c => { const st = NEAR_SEATS[c.seat]; seatOn(c.g, st.x, st.z, 'near', away ? 1.5 : 1); c.tag.classList.toggle('far', away); }); }
 placeNpcs();
 let npcReady = false;
-function setNpcCount(n) {
+function setNpcCount(n, skip) {
   NPCS.forEach((c, i) => {
-    const on = i < n;
+    const on = i < n && !(skip && skip.has(i));
     if (on === c.on) return;
     c.on = on; c.g.visible = on; c.tag.hidden = !on;
     if (!on) {
@@ -1903,16 +1916,33 @@ $('btnShare').onclick = async () => {
 updateCross();
 
 let peersSeen = false;
+// 폰을 잠깐 내려놓거나 망이 흔들려 끊긴 사람은 바로 지우지 않고 25초 동안 자리를 지켜 준다
+const recent = new Map(); // peer -> {p, t: 마지막으로 보인 때}
+let freshPeers = [];
+function withGrace(fresh) {
+  const now = performance.now(), ids = new Set(fresh.map(p => p.peer)), uids = new Set(fresh.map(p => p.by).filter(Boolean));
+  fresh.forEach(p => recent.set(p.peer, { p, t: now }));
+  for (const [k, r] of recent) if (!ids.has(k) && (now - r.t > 25000 || (r.p.by && uids.has(r.p.by)))) recent.delete(k); // 새로고침해 다시 온 사람은 옛 자리를 바로 비운다
+  return [...recent.values()].map(r => r.p);
+}
+setInterval(() => { if (recent.size) syncPeers(withGrace(freshPeers)); }, 5000);
+const seatOf = new Map(); // peer -> 앉은 자리. 누가 새로 와도 다른 사람 자리는 그대로
 function syncPeers(list) {
   lastPeerList = list;
   const rest = list.filter(p => !p.sameTab && p.kind === 'viewer').sort((a, b) => a.peer < b.peer ? -1 : 1);
   const keep = new Set();
   const nNpc = Math.max(0, NPCS.length - rest.length);
   // 이웃 낚시꾼이 앉은 자리를 빼고, 각자 고른 둑부터 채운다
-  const taken = new Set(NPCS.slice(0, nNpc).map(c => NEAR_SEATS[c.seat]));
+  // 사람이 이미 앉은 자리의 이웃 낚시꾼은 돌아오지 않는다. 사람을 밀어내지 않게
+  const held = new Set(rest.filter(p => seatOf.has(p.peer)).map(p => seatOf.get(p.peer)));
+  const skip = new Set(NPCS.map((c, i) => held.has(NEAR_SEATS[c.seat]) ? i : -1));
+  const taken = new Set(NPCS.slice(0, nNpc).filter((c, i) => !skip.has(i)).map(c => NEAR_SEATS[c.seat]));
   const pool = { near: NEAR_SEATS.filter(x => !taken.has(x)), far: FAR_SEATS.filter(x => !taken.has(x)) };
   const assign = new Map();
-  rest.forEach(p => { const pref = (p.presence || {}).bank === 'far' ? 'far' : 'near'; const st = pool[pref].shift() || pool[pref === 'far' ? 'near' : 'far'].shift(); if (st) assign.set(p.peer, st); });
+  const prefOf = p => (p.presence || {}).bank === 'far' ? 'far' : 'near';
+  rest.forEach(p => { const old = seatOf.get(p.peer), pl = pool[prefOf(p)]; if (old && pl.includes(old)) { pl.splice(pl.indexOf(old), 1); assign.set(p.peer, old); } });
+  rest.forEach(p => { if (assign.has(p.peer)) return; const pref = prefOf(p); const st = pool[pref].shift() || pool[pref === 'far' ? 'near' : 'far'].shift(); if (st) assign.set(p.peer, st); });
+  seatOf.clear(); assign.forEach((st, k) => seatOf.set(k, st));
   let arrived = 0;
   rest.filter(p => assign.has(p.peer)).forEach((p, i) => {
     keep.add(p.peer);
@@ -1938,7 +1968,7 @@ function syncPeers(list) {
     o.tag.querySelector('.nm > span').textContent = nm || nameFor(o.by, i);
     o.tag.querySelector('i').textContent = ''; // 남이 낚은 세월은 숫자로 보여 주지 않고, 모습으로만 드러난다
     o.days = pr.fishing && Number.isFinite(pr.days) ? Math.max(0, pr.days) : 0;
-    const em = pr.emote;
+    const em = peerEmote.get(p.peer) || pr.emote;
     if (em && typeof em === 'object' && em.n !== (o.lastEmote && o.lastEmote.n)) {
       const first = o.lastEmote === null;
       o.lastEmote = em;
@@ -1951,7 +1981,7 @@ function syncPeers(list) {
           const from = p.peer;
           setTimeout(() => { say(me, '(따뜻하다)'); sfx.call('clink', 0, 1); toast(`${giver}님이 차 한잔을 건넸어요`); }, 1300);
           // 받은 사람은 잠시 뒤 저절로 고개 숙여 답례한다. 건넨 사람 화면에 보인다
-          setTimeout(() => { me.userData.bowT = 2.4; myEmote = { k: 'thank', i: 0, n: ++emoteSeq, to: from }; pushPresence(true); }, 2600);
+          setTimeout(() => { me.userData.bowT = 2.4; myEmote = { k: 'thank', i: 0, n: ++emoteSeq, to: from }; sendEmote(); }, 2600);
         } else { const r = others.get(em.to); if (r) flyTea(o.g, r.g); }
       } else if (!first && em.k === 'thank') {
         o.g.userData.bowT = 2.4; say(o.g, '고맙소, 잘 마시겠소', 4);
@@ -1971,7 +2001,7 @@ function syncPeers(list) {
     const b = bubbles.get(o.g); if (b) { b.el.remove(); bubbles.delete(o.g); }
     others.delete(peer);
   }
-  setNpcCount(nNpc);
+  setNpcCount(nNpc, skip);
   if (arrived && npcOn().length) npcSay(npcOn()[0], '새 벗이 오셨구려. 어서 앉으시오', 5);
   if (list.length) peersSeen = true;
 }
@@ -2057,12 +2087,12 @@ async function saveRemote() {
   if (S.uid) sb.from('visits').insert({ uid: S.uid, day: kstDay() }).then(() => {}, () => {});
   setInterval(() => { if (!ledger.hidden) loadLedger(); }, 30000);
   // 탭이 오래 숨어 있거나 PC가 잠들면 연결이 끊긴다. 끊기면 토큰을 새로 받아 다시 앉는다.
-  let chan = null, joining = false;
+  let chan = null, joining = false, joinedAt = 0;
   async function joinRiver() {
     if (joining) return;
     joining = true;
     try {
-      if (chan) { const old = chan; chan = null; S.chan = null; syncPeers([]); await sb.removeChannel(old).catch(() => {}); }
+      if (chan) { const old = chan; chan = null; S.chan = null; freshPeers = []; await sb.removeChannel(old).catch(() => {}); }
       try { const { data: { session } } = await sb.auth.getSession(); if (session) sb.realtime.setAuth(session.access_token); } catch {}
       const c = sb.channel('riverbank', { config: { presence: { key: S.tabId } } });
       c.on('presence', { event: 'sync' }, () => {
@@ -2072,17 +2102,21 @@ async function saveRemote() {
           const metas = st[key], m = metas[metas.length - 1] || {};
           list.push({ peer: key, by: typeof m.uid === 'string' ? m.uid : null, sameTab: key === S.tabId, kind: 'viewer', presence: m });
         }
-        syncPeers(list);
+        freshPeers = list; syncPeers(withGrace(list));
+      });
+      c.on('broadcast', { event: 'emote' }, ({ payload }) => {
+        if (c !== chan || !payload || typeof payload.peer !== 'string' || !payload.em || typeof payload.em !== 'object') return;
+        peerEmote.set(payload.peer, payload.em); syncPeers(withGrace(freshPeers));
       });
       c.subscribe(status => {
         if (c !== chan) return;
         if (status === 'SUBSCRIBED') { S.chan = c; pushPresence(true); }
         else { S.chan = null; }
       });
-      chan = c;
+      chan = c; joinedAt = performance.now();
     } finally { joining = false; }
   }
-  const checkRiver = () => { if (!chan || chan.state !== 'joined') joinRiver(); };
+  const checkRiver = () => { if (!chan || (chan.state !== 'joined' && (chan.state !== 'joining' || performance.now() - joinedAt > 30000))) joinRiver(); };
   joinRiver();
   setInterval(checkRiver, 15000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) checkRiver(); });
