@@ -1012,24 +1012,27 @@ function makeDeer(mat, antlers) {
 const peekDeer = makeDeer(new THREE.MeshBasicMaterial({ color: '#3a3330' }));
 const shoreDeer = makeDeer(lam('#7a5a3e'), true);
 let deer = null, nextDeer = rand(12, 20);
-const ridgeY = x => Math.max(0, 1 + 12 * (0.55 + 0.45 * Math.sin(x * 0.021 + 2.2) * Math.sin(x * 0.007 + 2.2 * 2.3) + 0.18 * Math.sin(x * 0.09 + 2.2 * 5)));
+function startPeek(fx) {
+  // 내가 바라보는 쪽 앞산(건너편에 앉으면 이쪽 뒷산), 내 앞 화면 안에서 능선 꼭대기가 충분히 높은 곳에서만 고개를 내민다
+  const ri = S.bank === 'far' ? 3 : 2, cx = Math.round(me.position.x / 4) * 4;
+  const xs = []; for (let x = cx - 16; x <= cx + 16; x += 4) if (ridgeTop(ri, x) > 4) xs.push(x);
+  if (!xs.length) return;
+  const x = fx ?? xs[Math.floor(Math.random() * xs.length)], s = 3;
+  // 능선은 4칸마다 꺾이는 선이라 몸통 양 끝의 가장 낮은 높이에 맞춰, 몸통은 늘 능선 아래에 숨기고 머리만 내민다
+  const at = v => { const a = Math.floor(v / 4) * 4, k = (v - a) / 4; return ridgeTop(ri, a) * (1 - k) + ridgeTop(ri, a + 4) * k; };
+  const y0 = Math.min(at(x - 2), at(x - 1), at(x), at(x + 1), at(x + 2));
+  peekDeer.scale.setScalar(s); peekDeer.rotation.y = Math.random() < 0.5 ? 0 : Math.PI;
+  peekDeer.position.set(x, y0 - 1.6 * s, RIDGE_P[ri][0] + (ri === 2 ? -0.6 : 0.6)); peekDeer.visible = true;
+  deer = { kind: 'peek', g: peekDeer, t: 0, dur: rand(6, 10), lo: y0 - 1.6 * s, hi: y0 - 1.05 * s, ri };
+}
 function startDeer() {
-  if (Math.random() < 0.6) {
-    // 능선 꼭대기가 충분히 높은 곳에서만 고개를 내민다
-    const xs = []; for (let x = -28; x <= 28; x += 4) if (ridgeY(x) > 4) xs.push(x);
-    if (!xs.length) return;
-    const x = xs[Math.floor(Math.random() * xs.length)], s = 3;
-    // 능선은 4칸마다 꺾이는 선이라 몸통 양 끝의 가장 낮은 높이에 맞춰 숨긴다
-    const at = v => { const a = Math.floor(v / 4) * 4, k = (v - a) / 4; return ridgeY(a) * (1 - k) + ridgeY(a + 4) * k; };
-    const y0 = Math.min(at(x - 1.4), at(x), at(x + 1.4));
-    peekDeer.scale.setScalar(s); peekDeer.rotation.y = Math.random() < 0.5 ? 0 : Math.PI;
-    peekDeer.position.set(x, y0 - 1.6 * s, -60.6); peekDeer.visible = true;
-    deer = { kind: 'peek', g: peekDeer, t: 0, dur: rand(6, 10), lo: y0 - 1.6 * s, hi: y0 - 1.0 * s };
-  } else {
-    const dir = Math.random() < 0.5 ? 1 : -1, s = 1.2;
+  // 건너편 물가로 물 마시러 오는 노루는 이쪽 둑에 앉았을 때만 보인다
+  if (S.bank === 'far' || Math.random() < 0.6) startPeek();
+  else {
+    const dir = Math.random() < 0.5 ? 1 : -1, s = 1.2, ox = me.position.x;
     shoreDeer.scale.setScalar(s); shoreDeer.rotation.y = dir > 0 ? 0 : Math.PI;
-    shoreDeer.position.set(-dir * 34, 0.6, -44.8); shoreDeer.visible = true;
-    deer = { kind: 'shore', g: shoreDeer, t: 0, dir, stopX: rand(-14, 14), drink: 0, drank: false };
+    shoreDeer.position.set(ox - dir * 34, 0.6, -44.8); shoreDeer.visible = true;
+    deer = { kind: 'shore', g: shoreDeer, t: 0, dir, ox, stopX: ox + rand(-14, 14), drink: 0, drank: false };
   }
 }
 function updateDeer(dt) {
@@ -1037,6 +1040,8 @@ function updateDeer(dt) {
   const d = deer, u = d.g.userData; d.t += dt;
   u.ears.forEach((e, i) => { e.rotation.y = Math.sin(d.t * 9 + i) > 0.97 ? 0.5 : 0; });
   if (d.kind === 'peek') {
+    // 앞산 빛깔보다 조금 짙은 그림자로: 그래야 허공에 뜬 덩어리가 아니라 능선 위로 내민 머리로 읽힌다
+    peekDeer.children[0].material.color.copy(ridges[d.ri].material.color).multiplyScalar(0.72);
     const up = Math.min(1, d.t / 1.4, (d.dur - d.t) / 1.4), e = up * up * (3 - 2 * up);
     d.g.position.y = d.lo + (d.hi - d.lo) * Math.max(0, e);
     u.head.rotation.y = Math.sin(d.t * 0.9) > 0.3 ? 0.9 : Math.sin(d.t * 0.9) < -0.5 ? -0.5 : 0;
@@ -1050,7 +1055,7 @@ function updateDeer(dt) {
   const want = d.drink > 0.8 ? -1.35 : 0;
   u.neck.rotation.z += (want - u.neck.rotation.z) * Math.min(1, dt * 2.5);
   u.legs.forEach((l, i) => { l.rotation.z = walking ? Math.sin(d.t * 6 + (i % 2) * Math.PI + (i > 1 ? Math.PI / 2 : 0)) * 0.35 : l.rotation.z * 0.9; });
-  if (d.g.position.x * d.dir > 36) { d.g.visible = false; u.neck.rotation.z = 0; deer = null; }
+  if ((d.g.position.x - d.ox) * d.dir > 36) { d.g.visible = false; u.neck.rotation.z = 0; deer = null; }
 }
 
 // 건넨 찻잔이 한 사람에게서 다른 사람에게 포물선을 그리며 날아간다
@@ -2721,7 +2726,7 @@ async function saveRemote() {
 })();
 
 // 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
-if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
