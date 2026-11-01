@@ -891,10 +891,10 @@ function startFish() {
 const rand = (a, b) => a + Math.random() * (b - a);
 // 계절마다 다른 새: 봄 제비, 여름 백로, 가을 기러기(V자), 겨울 까마귀
 const BIRDS = [
-  { color: '#262a40', belly: '#efe7da', throat: '#b4452e', tail: 'fork', size: 0.42, speed: 10, n: [2, 4], flap: 11, glide: 0.3, y: [3, 7], swoop: 1.2, call: 'chirp', v: false },
-  { color: '#f3efe6', beak: '#dcb03a', bl: 0.2, neck: 0.16, legs: '#2a2826', size: 0.95, speed: 4.2, n: [1, 3], flap: 2.4, glide: 0.5, y: [3.5, 7], swoop: 0.25, call: 'egret', v: false },
-  { color: '#74675a', belly: '#d2c6b2', tip: '#3d352e', neck: 0.14, neckColor: '#2b2622', cheek: '#efe9df', size: 0.75, speed: 6, n: [5, 9], flap: 3, glide: 0.1, y: [10, 15], swoop: 0.15, call: 'honk', v: true },
-  { color: '#1d1c22', tip: '#2b2a33', tail: 'fan', bl: 0.11, size: 0.6, speed: 5.2, n: [1, 3], flap: 4.2, glide: 0.3, y: [6, 11], swoop: 0.3, call: 'caw', v: false }
+  { color: '#262a40', belly: '#efe7da', tail: 'fork', size: 0.42, speed: 10, n: [2, 4], flap: 11, glide: 0.3, y: [3, 7], swoop: 1.2, call: 'chirp', v: false },
+  { color: '#f3efe6', beak: '#dcb03a', bl: 0.15, neck: 0.1, legs: '#2a2826', size: 0.95, speed: 4.2, n: [1, 3], flap: 2.4, glide: 0.5, y: [3.5, 7], swoop: 0.25, call: 'egret', v: false },
+  { color: '#74675a', belly: '#d2c6b2', tip: '#3d352e', neck: 0.08, neckColor: '#2b2622', size: 0.75, speed: 6, n: [5, 9], flap: 3, glide: 0.1, y: [10, 15], swoop: 0.15, call: 'honk', v: true },
+  { color: '#1d1c22', tip: '#2b2a33', tail: 'fan', size: 0.6, speed: 5.2, n: [1, 3], flap: 4.2, glide: 0.3, y: [6, 11], swoop: 0.3, call: 'caw', v: false }
 ];
 const eyeMat = new THREE.MeshBasicMaterial({ color: '#1c1f1e' });
 // 날개는 앞전이 둥글고 끝이 뾰족한 판. 머리는 +x, 날개는 +z 쪽으로 뻗는다(오른쪽은 거울)
@@ -906,22 +906,19 @@ function makeBird(kind) {
   const mat = c => new THREE.MeshLambertMaterial({ color: c, emissive: new THREE.Color(c).multiplyScalar(0.35), flatShading: true, side: THREE.DoubleSide });
   const M = mat(kind.color), B = mat(kind.belly || kind.color), K = mat(kind.beak || '#1c1c20'), N = kind.neckColor ? mat(kind.neckColor) : M;
   const g = new THREE.Group(), add = (geo, m, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); g.add(o); return o; };
-  add(new THREE.SphereGeometry(0.1, 8, 6), M, 0, 0, 0, 2.6, 0.85, 0.9);
-  add(new THREE.SphereGeometry(0.085, 8, 6), B, 0.02, -0.03, 0, 2.2, 0.7, 0.85);
-  let hx = 0.27;
-  if (kind.neck) { const n = add(new THREE.CylinderGeometry(0.032, 0.05, kind.neck, 6), N, 0.22 + kind.neck / 2, 0.01, 0); n.rotation.z = -Math.PI / 2; hx = 0.24 + kind.neck; }
-  add(new THREE.SphereGeometry(0.065, 8, 6), N, hx, 0.02, 0, 1.15, 1, 1);
-  if (kind.cheek) [-1, 1].forEach(sd => add(new THREE.SphereGeometry(0.03, 6, 4), mat(kind.cheek), hx - 0.01, 0.0, sd * 0.05, 1.4, 1, 0.5));
-  if (kind.throat) add(new THREE.SphereGeometry(0.04, 6, 4), mat(kind.throat), hx - 0.01, -0.035, 0, 1.2, 0.8, 1);
-  const bl = kind.bl || 0.09, bk = add(new THREE.ConeGeometry(0.022, bl, 4), K, hx + 0.05 + bl / 2, 0.01, 0); bk.rotation.z = -Math.PI / 2;
-  [-1, 1].forEach(sd => add(new THREE.SphereGeometry(0.014, 4, 3), eyeMat, hx + 0.03, 0.035, sd * 0.05));
-  if (kind.tail === 'fork') [-1, 1].forEach(sd => { const t = add(new THREE.BoxGeometry(0.34, 0.012, 0.035), M, -0.36, 0.01, sd * 0.05); t.rotation.y = sd * 0.28; });
+  add(new THREE.SphereGeometry(0.12, 8, 6), M, 0, 0, 0, 1.7, 1, 1);
+  add(new THREE.SphereGeometry(0.1, 8, 6), B, 0.02, -0.03, 0, 1.6, 0.85, 0.95);
+  let hx = 0.22;
+  if (kind.neck) { const n = add(new THREE.CylinderGeometry(0.032, 0.05, kind.neck, 6), N, 0.18 + kind.neck / 2, 0.01, 0); n.rotation.z = -Math.PI / 2; hx = 0.2 + kind.neck; }
+  add(new THREE.SphereGeometry(0.095, 8, 6), N, hx, 0.03, 0, 1, 1, 1);
+  const bl = kind.bl || 0.07, bk = add(new THREE.ConeGeometry(0.024, bl, 4), K, hx + 0.08 + bl / 2, 0.02, 0); bk.rotation.z = -Math.PI / 2;
+  if (kind.tail === 'fork') [-1, 1].forEach(sd => { const t = add(new THREE.BoxGeometry(0.2, 0.012, 0.035), M, -0.26, 0.01, sd * 0.04); t.rotation.y = sd * 0.3; });
   else if (kind.tail === 'fan') add(flatXZ([0, -0.05, -0.26, -0.11, -0.3, 0, -0.26, 0.11, 0, 0.05]), M, -0.2, 0.01, 0);
   else add(flatXZ([0, -0.05, -0.15, -0.06, -0.17, 0, -0.15, 0.06, 0, 0.05]), M, -0.2, 0.01, 0);
-  if (kind.legs) [-1, 1].forEach(sd => { const l = add(new THREE.CylinderGeometry(0.011, 0.011, 0.42, 4), mat(kind.legs), -0.38, -0.03, sd * 0.025); l.rotation.z = Math.PI / 2; });
-  const wing = sd => { const w = new THREE.Group(); w.position.set(0.03, 0.04, sd * 0.05); w.scale.z = sd; w.add(new THREE.Mesh(wingGeo, M)); if (kind.tip) { const t = new THREE.Mesh(wingTipGeo, mat(kind.tip)); t.position.y = 0.004; w.add(t); } g.add(w); return w; };
+  if (kind.legs) [-1, 1].forEach(sd => { const l = add(new THREE.CylinderGeometry(0.012, 0.012, 0.22, 4), mat(kind.legs), -0.28, -0.04, sd * 0.03); l.rotation.z = Math.PI / 2; });
+  const wing = sd => { const w = new THREE.Group(); w.position.set(0.03, 0.04, sd * 0.05); w.scale.set(0.85, 1, sd * 0.68); w.add(new THREE.Mesh(wingGeo, M)); if (kind.tip) { const t = new THREE.Mesh(wingTipGeo, mat(kind.tip)); t.position.y = 0.004; w.add(t); } g.add(w); return w; };
   const wl = wing(1), wr = wing(-1);
-  g.scale.setScalar(kind.size * 1.3); g.userData = { wl, wr, ph: Math.random() * 6 };
+  g.scale.setScalar(kind.size); g.userData = { wl, wr, ph: Math.random() * 6 };
   return g;
 }
 const flocks = [];
@@ -981,45 +978,32 @@ function startLeap(at) {
 
 // 먼 산 너머로 빼꼼 고개를 내미는 노루, 건너편 물가로 물 마시러 오는 노루
 function makeDeer(mat, antlers) {
-  // 머리는 +x. 다리·목·머리·귀는 움직이는 마디라 Group으로 둔다. 실루엣용(MeshBasic)이면 한 색으로만
-  const flat = mat.isMeshBasicMaterial, light = flat ? mat : lam('#eadfca'), dark = flat ? mat : lam('#2a211c');
+  // 머리는 +x. 동글동글한 몸에 큰 머리, 짧은 다리. 다리·목·머리·귀는 움직이는 마디라 Group으로 둔다
+  const flat = mat.isMeshBasicMaterial, light = flat ? mat : lam('#eadfca');
   const g = new THREE.Group();
   const add = (par, geo, m, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.scale.set(sx, sy, sz); par.add(o); return o; };
   const ball = (r, w = 8, h = 6) => new THREE.SphereGeometry(r, w, h);
-  add(g, ball(0.3, 10, 8), mat, 0, 1.0, 0, 1.75, 0.75, 0.68);
-  add(g, ball(0.22), mat, 0.32, 1.03, 0, 1, 1.05, 0.95);
-  add(g, ball(0.22), mat, -0.36, 1.03, 0, 1, 1, 0.95);
-  add(g, ball(0.2), light, 0.02, 0.86, 0, 2, 0.45, 0.75);
-  add(g, ball(0.13), light, -0.55, 1.02, 0, 0.45, 1, 1.05);
-  const tl = add(g, new THREE.ConeGeometry(0.04, 0.12, 5), mat, -0.58, 1.12, 0); tl.rotation.z = 0.6;
-  const legs = [[-0.38, -0.12], [-0.38, 0.12], [0.36, -0.12], [0.36, 0.12]].map(([x, z]) => {
-    const p = new THREE.Group(); p.position.set(x, 0.85, z); g.add(p);
-    add(p, new THREE.CylinderGeometry(0.07, 0.045, 0.42, 6), mat, x < 0 ? -0.03 : 0, -0.2, 0);
-    add(p, new THREE.CylinderGeometry(0.032, 0.028, 0.4, 5), mat, x < 0 ? -0.02 : 0, -0.6, 0);
-    add(p, new THREE.BoxGeometry(0.07, 0.06, 0.06), dark, x < 0 ? -0.01 : 0.01, -0.82, 0);
+  add(g, ball(0.3), mat, 0, 0.72, 0, 1.35, 0.9, 0.85);
+  add(g, ball(0.12, 6, 4), light, -0.38, 0.76, 0, 0.5, 1, 1.1);
+  const legs = [[-0.2, -0.13], [-0.2, 0.13], [0.2, -0.13], [0.2, 0.13]].map(([x, z]) => {
+    const p = new THREE.Group(); p.position.set(x, 0.55, z); g.add(p);
+    add(p, new THREE.CylinderGeometry(0.06, 0.045, 0.56, 5), mat, 0, -0.27, 0);
     return p;
   });
-  const neck = new THREE.Group(); neck.position.set(0.4, 1.08, 0); g.add(neck);
-  const n = add(neck, new THREE.CylinderGeometry(0.075, 0.12, 0.64, 7), mat, 0.1, 0.27, 0); n.rotation.z = -0.35;
-  add(neck, ball(0.09), light, 0.08, 0.1, 0, 0.9, 1.4, 0.8);
-  const head = new THREE.Group(); head.position.set(0.22, 0.58, 0); neck.add(head);
-  add(head, ball(0.12), mat, 0.06, 0, 0, 1.45, 0.95, 0.88);
-  add(head, ball(0.075), light, 0.22, -0.05, 0, 1.3, 0.8, 0.85);
-  add(head, ball(0.03, 6, 4), dark, 0.31, -0.03, 0);
-  [-1, 1].forEach(sd => add(head, ball(0.022, 6, 4), dark, 0.11, 0.04, sd * 0.09));
-  const ears = [0.07, -0.07].map(z => {
-    const e = new THREE.Group(); e.position.set(-0.04, 0.08, z); head.add(e);
+  const neck = new THREE.Group(); neck.position.set(0.28, 0.85, 0); g.add(neck);
+  const n = add(neck, new THREE.CylinderGeometry(0.08, 0.11, 0.3, 6), mat, 0.04, 0.12, 0); n.rotation.z = -0.3;
+  const head = new THREE.Group(); head.position.set(0.1, 0.3, 0); neck.add(head);
+  add(head, ball(0.19), mat, 0.04, 0, 0, 1.1, 0.95, 0.95);
+  add(head, ball(0.08, 6, 4), light, 0.2, -0.06, 0, 1, 0.8, 1);
+  const ears = [0.1, -0.1].map(z => {
+    const e = new THREE.Group(); e.position.set(-0.04, 0.12, z); head.add(e);
     const leaf = new THREE.Group(); leaf.rotation.x = z * 7; e.add(leaf);
-    add(leaf, ball(0.08, 6, 4), mat, 0, 0.1, 0, 0.55, 1.5, 0.22);
-    if (!flat) add(leaf, ball(0.06, 6, 4), light, 0.012, 0.1, 0, 0.4, 1.2, 0.2);
+    add(leaf, ball(0.08, 6, 4), mat, 0, 0.08, 0, 0.6, 1.3, 0.3);
     return e;
   });
   if (antlers) [-1, 1].forEach(sd => {
-    const a = new THREE.Group(); a.position.set(0.02, 0.1, sd * 0.04); a.rotation.x = sd * -0.25; head.add(a);
-    const am = flat ? mat : lam('#5a4636');
-    add(a, new THREE.CylinderGeometry(0.014, 0.022, 0.26, 5), am, 0, 0.13, 0);
-    const t1 = add(a, new THREE.CylinderGeometry(0.01, 0.014, 0.11, 4), am, 0.04, 0.17, 0); t1.rotation.z = -0.8;
-    const t2 = add(a, new THREE.CylinderGeometry(0.008, 0.012, 0.09, 4), am, -0.035, 0.27, 0); t2.rotation.z = 0.7;
+    const a = new THREE.Group(); a.position.set(0, 0.16, sd * 0.05); a.rotation.x = sd * -0.3; head.add(a);
+    add(a, new THREE.CylinderGeometry(0.018, 0.025, 0.16, 5), flat ? mat : lam('#5a4636'), 0, 0.08, 0);
   });
   g.userData = { legs, neck, head, ears };
   g.visible = false; scene.add(g);
@@ -1039,10 +1023,10 @@ function startDeer() {
     const at = v => { const a = Math.floor(v / 4) * 4, k = (v - a) / 4; return ridgeY(a) * (1 - k) + ridgeY(a + 4) * k; };
     const y0 = Math.min(at(x - 1.4), at(x), at(x + 1.4));
     peekDeer.scale.setScalar(s); peekDeer.rotation.y = Math.random() < 0.5 ? 0 : Math.PI;
-    peekDeer.position.set(x, y0 - 2 * s, -60.6); peekDeer.visible = true;
-    deer = { kind: 'peek', g: peekDeer, t: 0, dur: rand(6, 10), lo: y0 - 2 * s, hi: y0 - 1.28 * s };
+    peekDeer.position.set(x, y0 - 1.6 * s, -60.6); peekDeer.visible = true;
+    deer = { kind: 'peek', g: peekDeer, t: 0, dur: rand(6, 10), lo: y0 - 1.6 * s, hi: y0 - 1.0 * s };
   } else {
-    const dir = Math.random() < 0.5 ? 1 : -1, s = 1.5;
+    const dir = Math.random() < 0.5 ? 1 : -1, s = 1.2;
     shoreDeer.scale.setScalar(s); shoreDeer.rotation.y = dir > 0 ? 0 : Math.PI;
     shoreDeer.position.set(-dir * 34, 0.6, -44.8); shoreDeer.visible = true;
     deer = { kind: 'shore', g: shoreDeer, t: 0, dir, stopX: rand(-14, 14), drink: 0, drank: false };
@@ -1175,29 +1159,22 @@ function updateShark(dt) {
 
 // 양옆 길가를 어슬렁거리는 노루와 토끼. 이쪽 둑 기준 좌표로 다니고, 내가 건너가면 건너편 길가로 옮겨 보인다
 function makeRabbit(color) {
-  const g = new THREE.Group(), m = lam(color), light = lam('#efe6d6'), pink = lam('#e3a6a0');
+  // 동그란 몸에 큰 머리
+  const g = new THREE.Group(), m = lam(color), light = lam('#efe6d6');
   const add = (par, geo, mm, x, y, z, sx = 1, sy = 1, sz = 1) => { const o = new THREE.Mesh(geo, mm); o.position.set(x, y, z); o.scale.set(sx, sy, sz); par.add(o); return o; };
   const ball = (r, w = 8, h = 6) => new THREE.SphereGeometry(r, w, h);
-  add(g, ball(0.2), m, 0, 0.2, 0, 1.2, 0.95, 0.9);
-  [-1, 1].forEach(sd => {
-    add(g, ball(0.12), m, -0.1, 0.15, sd * 0.1, 1.2, 1, 0.8);
-    add(g, new THREE.BoxGeometry(0.22, 0.04, 0.07), m, -0.04, 0.02, sd * 0.11);
-    add(g, new THREE.BoxGeometry(0.06, 0.12, 0.05), m, 0.2, 0.06, sd * 0.06);
-  });
-  add(g, ball(0.12), light, 0.13, 0.17, 0, 0.9, 1, 0.85);
-  const head = new THREE.Group(); head.position.set(0.25, 0.37, 0); g.add(head);
-  add(head, ball(0.11), m, 0, 0, 0, 1.2, 1, 0.95);
-  add(head, ball(0.05, 6, 4), light, 0.1, -0.04, 0, 1, 0.8, 1.2);
-  add(head, ball(0.018, 5, 4), pink, 0.145, -0.01, 0);
-  [-1, 1].forEach(sd => add(head, ball(0.02, 5, 4), eyeMat, 0.07, 0.03, sd * 0.08));
-  const ears = [0.045, -0.045].map(z => {
-    const e = new THREE.Group(); e.position.set(-0.04, 0.08, z); head.add(e);
-    const leaf = new THREE.Group(); leaf.rotation.set(z * 4, 0, 0.25); e.add(leaf);
-    add(leaf, ball(0.06, 6, 4), m, 0, 0.13, 0, 0.6, 2.4, 0.35);
-    add(leaf, ball(0.045, 6, 4), pink, 0.012, 0.13, 0, 0.45, 2, 0.3);
+  add(g, ball(0.16), m, 0, 0.16, 0, 1.15, 1, 1);
+  const head = new THREE.Group(); head.position.set(0.15, 0.32, 0); g.add(head);
+  add(head, ball(0.13), m, 0, 0, 0, 1.05, 1, 1);
+  add(head, ball(0.045, 6, 4), light, 0.11, -0.04, 0, 1, 0.8, 1.2);
+  const ears = [0.05, -0.05].map(z => {
+    const e = new THREE.Group(); e.position.set(-0.03, 0.09, z); head.add(e);
+    const leaf = new THREE.Group(); leaf.rotation.set(z * 4, 0, 0.2); e.add(leaf);
+    add(leaf, ball(0.055, 6, 4), m, 0, 0.1, 0, 0.65, 2, 0.4);
     return e;
   });
-  add(g, ball(0.07, 6, 5), light, -0.27, 0.24, 0);
+  add(g, ball(0.06, 6, 4), light, -0.19, 0.2, 0);
+  g.scale.setScalar(0.8);
   g.userData = { head, ears }; scene.add(g); return g;
 }
 const FAUNA = [ // [종류, 둑, 구역 왼쪽, 오른쪽]
@@ -1205,7 +1182,7 @@ const FAUNA = [ // [종류, 둑, 구역 왼쪽, 오른쪽]
   ['deer', 'far', -46, -16], ['rabbit', 'far', -16, 16], ['rabbit', 'far', 16, 46]
 ].map(([kind, bank, lo, hi], i) => ({ kind, bank, lo, hi, speed: kind === 'deer' ? 0.8 : 1.5, g: kind === 'deer' ? makeDeer(lam(i ? '#86603f' : '#7a5a3e'), !i) : makeRabbit(['#b9a487', '#d8cdbb', '#a99682', '#8f8172'][i % 4]) }));
 FAUNA.forEach(a => {
-  a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(0.85);
+  a.g.visible = true; if (a.kind === 'deer') a.g.scale.setScalar(0.75);
   a.x = rand(a.lo, a.hi); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(2, 12); a.t = Math.random() * 10; a.heading = 0;
   if (Math.random() < 0.6) { a.g.visible = false; a.awayT = rand(20, 360); } // 처음부터 다 나와 있지 않는다
 });
