@@ -977,7 +977,7 @@ function startLeap(at) {
 }
 
 // 먼 산 너머로 빼꼼 고개를 내미는 노루, 건너편 물가로 물 마시러 오는 노루
-function makeDeer(mat, antlers) {
+function makeDeer(mat, antlers, fawn) {
   // 머리는 +x. 동글동글한 몸에 큰 머리, 짧은 다리. 다리·목·머리·귀는 움직이는 마디라 Group으로 둔다
   const flat = mat.isMeshBasicMaterial, light = flat ? mat : lam('#eadfca');
   const g = new THREE.Group();
@@ -985,6 +985,11 @@ function makeDeer(mat, antlers) {
   const ball = (r, w = 8, h = 6) => new THREE.SphereGeometry(r, w, h);
   add(g, ball(0.3), mat, 0, 0.72, 0, 1.35, 0.9, 0.85);
   add(g, ball(0.12, 6, 4), light, -0.38, 0.76, 0, 0.5, 1, 1.1);
+  // 아기 노루: 등에 흰 점박이 무늬
+  if (fawn) [[-0.22, 0.17], [-0.05, 0.2], [0.12, 0.17], [-0.14, 0.09], [0.04, 0.11]].forEach(([x, dy]) => [-1, 1].forEach(sd => {
+    const z = 0.255 * Math.sqrt(Math.max(0, 1 - (x / 0.405) ** 2 - (dy / 0.27) ** 2));
+    add(g, ball(0.03, 5, 3), light, x, 0.72 + dy, sd * (z + 0.005), 1, 1, 0.4);
+  }));
   const legs = [[-0.2, -0.13], [-0.2, 0.13], [0.2, -0.13], [0.2, 0.13]].map(([x, z]) => {
     const p = new THREE.Group(); p.position.set(x, 0.55, z); g.add(p);
     add(p, new THREE.CylinderGeometry(0.06, 0.045, 0.56, 5), mat, 0, -0.27, 0);
@@ -1162,7 +1167,7 @@ function updateShark(dt) {
   if ((r.x - r.ox) * r.dir > 48) { shark.visible = false; sharkRun = null; }
 }
 
-// 양옆 길가를 어슬렁거리는 노루와 토끼. 이쪽 둑 기준 좌표로 다니고, 내가 건너가면 건너편 길가로 옮겨 보인다
+// 양옆 길가를 어슬렁거리는 아기 노루와 토끼. 이쪽 둑 기준 좌표로 다니고, 내가 건너가면 건너편 길가로 옮겨 보인다
 function makeRabbit(color) {
   // 동그란 몸에 큰 머리
   const g = new THREE.Group(), m = lam(color), light = lam('#efe6d6');
@@ -1184,10 +1189,9 @@ function makeRabbit(color) {
 const FAUNA = [ // [종류, 둑, 구역 왼쪽, 오른쪽]
   ['rabbit', 'near', -46, -16], ['deer', 'near', -16, 16], ['rabbit', 'near', 16, 46],
   ['deer', 'far', -46, -16], ['rabbit', 'far', -16, 16], ['rabbit', 'far', 16, 46]
-].map(([kind, bank, lo, hi], i) => ({ kind, bank, lo, hi, speed: kind === 'deer' ? 0.8 : 1.5, g: kind === 'deer' ? makeDeer(lam(i ? '#86603f' : '#7a5a3e'), !i) : makeRabbit(['#b9a487', '#d8cdbb', '#a99682', '#8f8172'][i % 4]) }));
+].map(([kind, bank, lo, hi], i) => ({ kind, bank, lo, hi, speed: kind === 'deer' ? 0.8 : 1.5, g: kind === 'deer' ? makeDeer(lam(i ? '#9a6a42' : '#8a5f3c'), false, true) : makeRabbit(['#b9a487', '#d8cdbb', '#a99682', '#8f8172'][i % 4]) }));
 FAUNA.forEach(a => {
-  // 건너편 길가는 멀어서 눈에 잘 안 띈다: 건너편 짐승은 두 배로 키워 이쪽과 비슷한 무게로 보이게
-  a.g.visible = true; a.g.scale.setScalar((a.kind === 'deer' ? 0.75 : 0.8) * (a.bank === 'far' ? 2 : 1));
+  a.g.visible = true;
   a.x = rand(a.lo, a.hi); a.z = rand(2.5, 3.6); a.tx = a.x; a.tz = a.z; a.idle = rand(2, 12); a.t = Math.random() * 10; a.heading = 0;
   if (Math.random() < 0.6) { a.g.visible = false; a.awayT = rand(20, 360); } // 처음부터 다 나와 있지 않는다
 });
@@ -1226,6 +1230,8 @@ function updateFauna(dt) {
       u.legs.forEach((l, i) => { l.rotation.z = moving ? Math.sin(a.t * 6 + (i % 2) * Math.PI + (i > 1 ? Math.PI / 2 : 0)) * 0.35 : l.rotation.z * 0.9; });
       u.ears.forEach((e, i) => { e.rotation.y = Math.sin(a.t * 7 + i) > 0.96 ? 0.5 : 0; });
     }
+    // 건너편 길가는 멀어서 눈에 잘 안 띈다: 내 둑이 아닌 쪽 짐승은 두 배로 키워 이쪽과 비슷한 무게로 보이게
+    a.g.scale.setScalar((a.kind === 'deer' ? 0.75 : 0.8) * (a.bank === S.bank ? 1 : 2));
     if (a.bank === 'far') { a.g.position.set(-a.x, 0.6 + y, -42.3 - (a.z - 1.1)); a.g.rotation.y = a.heading + Math.PI; }
     else { a.g.position.set(a.x, 0.25 + y, a.z); a.g.rotation.y = a.heading; }
   }
@@ -1247,7 +1253,7 @@ let turtleRun = null, nextTurtle = new URLSearchParams(location.search).has('tur
 const RABBIT_SAY = ['(깡총!)', '(코를 씰룩)', '(귀가 쫑긋)', '(…당근?)', '(화들짝)'];
 const RABBIT_TOAST = ['토끼가 깜짝 놀라 세 번 뛰었어요', '토끼가 당신을 한참 쳐다보다 갔어요', '토끼도 세월은 안 무나 봐요', '토끼가 삿갓을 커다란 버섯으로 착각했어요'];
 const DEER_SAY = ['(고개를 꾸벅)', '(물끄러미 바라본다)', '(킁킁)', '(귀를 쫑긋)'];
-const DEER_TOAST = ['노루가 고개를 꾸벅 숙였어요. 읍을 배웠나 봐요', '노루가 당신 삿갓 냄새를 맡고 갔어요', '노루가 당신을 오래된 바위로 여기는 눈치예요'];
+const DEER_TOAST = ['아기 노루가 고개를 꾸벅 숙였어요. 읍을 배웠나 봐요', '아기 노루가 당신 삿갓 냄새를 맡고 갔어요', '아기 노루가 당신을 오래된 바위로 여기는 눈치예요'];
 const pickV = new THREE.Vector3();
 function pickAt(cx, cy) {
   const rect = renderer.domElement.getBoundingClientRect(), cands = [];
