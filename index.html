@@ -923,10 +923,16 @@ function spawnFlock() {
 
 // 멀리서도 가까이서도 한 번씩 튀어오르는 물고기
 const leapMat = new THREE.MeshLambertMaterial({ color: '#b7c0bd', flatShading: true });
+const finMat = new THREE.MeshLambertMaterial({ color: '#8f9a97', side: THREE.DoubleSide }), eyeMat = new THREE.MeshBasicMaterial({ color: '#1c1f1e' });
 function makeLeaper() {
   const g = new THREE.Group(), pitch = new THREE.Group(); g.add(pitch);
-  const b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), leapMat); b.scale.set(1.7, 0.5, 0.55); pitch.add(b);
-  const tl = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.26, 4), leapMat); tl.rotation.z = Math.PI / 2; tl.position.x = -0.42; tl.scale.z = 0.3; pitch.add(tl);
+  // 머리는 +x: 통통한 몸, 갈라진 꼬리지느러미, 등지느러미, 눈
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), leapMat); b.scale.set(1.55, 0.62, 0.5); b.position.x = 0.04; pitch.add(b);
+  const flat = pts => { const sh = new THREE.Shape(); sh.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) sh.lineTo(pts[i], pts[i + 1]); return new THREE.Mesh(new THREE.ShapeGeometry(sh), finMat); };
+  const tl = new THREE.Group(); tl.position.x = -0.28; pitch.add(tl);
+  tl.add(flat([0.04, 0, -0.2, 0.17, -0.13, 0, -0.2, -0.17]));
+  const dorsal = flat([0.1, 0, -0.08, 0, -0.06, 0.1]); dorsal.position.set(0, 0.12, 0); pitch.add(dorsal);
+  [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.SphereGeometry(0.025, 5, 4), eyeMat); e.position.set(0.3, 0.035, sd * 0.085); pitch.add(e); });
   g.userData = { pitch, tail: tl }; g.visible = false; scene.add(g); return g;
 }
 const leapers = [makeLeaper(), makeLeaper()], leaps = [];
