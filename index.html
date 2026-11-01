@@ -1705,7 +1705,10 @@ function updateWild(dt) {
       u.wl.rotation.x = -a; u.wr.rotation.x = a;
     }
     f.callT -= dt;
-    if (f.callT <= 0) { f.callT = rand(1.8, 4.5); if (Math.abs(f.x - me.position.x) < 30 && Math.random() < 0.6) sfx.call(k.call, (f.x - me.position.x) / 30, 0.55 * Math.max(0.35, 1 + f.z / 45)); }
+    // 가까이 들어오면 꼭 한 번은 운다. 소리 크기는 나와 떨어진 거리로 (건너편 둑에 앉아도 똑같이)
+    const near = Math.abs(f.x - me.position.x) < 24;
+    if (near && !f.called) f.callT = Math.min(f.callT, 0);
+    if (f.callT <= 0) { f.callT = rand(1.8, 4.5); if (near && (!f.called || Math.random() < 0.7)) { f.called = true; sfx.call(k.call, (f.x - me.position.x) / 30, 1.1 * Math.max(0.35, 1 - Math.abs(f.z - me.position.z) / 50)); } }
     if ((f.x - f.ox) * f.dir > 52) { f.birds.forEach(b => scene.remove(b)); flocks.splice(i, 1); }
   }
 
@@ -2718,7 +2721,7 @@ async function saveRemote() {
 })();
 
 // 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
-if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
