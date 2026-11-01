@@ -2156,7 +2156,7 @@ function emote(kind) {
   }
   myEmote = { k: kind, i, n: ++emoteSeq, to, give };
   sendEmote();
-  npcReact(kind);
+  npcReact(kind); nbReact(kind, to);
 }
 let myEmote = null;
 $('btnBow').onclick = () => emote('bow');
@@ -2589,6 +2589,44 @@ $('btnShare').onclick = async () => {
 };
 updateCross();
 
+/* ---------------- 강가 이웃: 사람이 적을 때도 혼자가 아니게 ---------------- */
+// 누구 화면에서나 같은 때 같은 이웃이 같은 자리에 앉는다. 오고 가는 때도 사람처럼 들쭉날쭉하고, 진짜 사람이 늘면 그만큼 자리를 내준다
+const NB_N = 3, NB_POOL = 5, NB_SLOT = 40 * 60000;
+function neighbors(realN) {
+  const want = Math.max(0, NB_N - realN), now = Date.now(), out = [];
+  for (let k = 0; k < NB_POOL && out.length < want; k++) {
+    const off = Math.floor(k * NB_SLOT / NB_POOL), s = Math.floor((now + off) / NB_SLOT), h = hash(`nb:${k}:${s}`);
+    if (h % 100 >= 85) continue; // 이 때는 오지 않는다
+    const t0 = s * NB_SLOT - off + (h >>> 7) % 300000, t1 = (s + 1) * NB_SLOT - off - (h >>> 13) % 600000;
+    if (now < t0 || now > t1) continue;
+    const bank = h % 3 ? 'near' : 'far';
+    out.push({ peer: `nb-${k}-${s}`, nb: true, by: null, kind: 'viewer', presence: {
+      name: ADJ[(h >>> 3) % ADJ.length] + ' ' + NOUN[(h >>> 11) % NOUN.length], bank, seat: (h >>> 19) % seatsOf(bank).length, seatAt: 9e15 + k,
+      fishing: now - t0 > 25000, days: Math.floor((now - t0) / 1000) } });
+  }
+  return out;
+}
+let nbSeq = 0;
+const nbList = () => [...others.keys()].filter(k => k.startsWith('nb-'));
+const pickOf = l => l[Math.floor(Math.random() * l.length)];
+function nbEmote(peer, em) { if (!others.has(peer)) return; peerEmote.set(peer, { ...em, n: ++nbSeq }); syncPeers(withGrace(freshPeers)); }
+// 내 몸짓에 이웃이 사람처럼, 늘은 아니게 답한다
+function nbReact(kind, to) {
+  const l = nbList(); if (!l.length) return;
+  if (kind === 'tea' && to && to.startsWith('nb-')) setTimeout(() => nbEmote(to, { k: 'thank', i: 0, to: S.tabId }), rand(2600, 4200));
+  else if (kind === 'wave' && Math.random() < 0.5) setTimeout(() => nbEmote(pickOf(l), { k: 'wave', i: Math.floor(Math.random() * WAVE.length) }), rand(1200, 2800));
+  else if (kind === 'bow' && Math.random() < 0.35) setTimeout(() => nbEmote(pickOf(l), { k: 'bow', i: Math.floor(Math.random() * BOW.length) }), rand(1500, 3200));
+}
+setInterval(() => {
+  syncPeers(withGrace(freshPeers)); // 이웃이 오고 간다
+  const l = nbList(); if (!l.length || document.hidden || Math.random() > 0.07) return; // 몇 분에 한 번쯤 혼자서도 무언가 한다
+  const p = pickOf(l), o = others.get(p), r = Math.random();
+  if (r < 0.1) nbEmote(p, { k: 'tea', i: Math.floor(Math.random() * TEA_GIVE.length), to: S.tabId });
+  else if (r < 0.4 && o.bank !== S.bank) nbEmote(p, { k: 'wave', i: Math.floor(Math.random() * WAVE.length) });
+  else if (r < 0.7) nbEmote(p, { k: 'poem', i: Math.floor(Math.random() * POEMS.length) });
+  else nbEmote(p, { k: 'bow', i: Math.floor(Math.random() * BOW.length) });
+}, 15000);
+
 let peersSeen = false, seatMoveCool = 0;
 // 폰을 잠깐 내려놓거나 망이 흔들려 끊긴 사람은 바로 지우지 않고 25초 동안 자리를 지켜 준다
 const recent = new Map(); // peer -> {p, t: 마지막으로 보인 때}
@@ -2602,7 +2640,8 @@ function withGrace(fresh) {
 setInterval(() => { if (recent.size) syncPeers(withGrace(freshPeers)); }, 5000);
 const seatOf = new Map(); // peer -> 앉은 자리. 누가 새로 와도 다른 사람 자리는 그대로
 function syncPeers(list) {
-  lastPeerList = list;
+  list = list.filter(p => !p.nb); lastPeerList = list;
+  list = list.concat(neighbors(list.filter(p => !p.sameTab && p.kind === 'viewer').length));
   const rest = list.filter(p => !p.sameTab && p.kind === 'viewer').sort((a, b) => a.peer < b.peer ? -1 : 1);
   const keep = new Set();
   const prefOf = p => (p.presence || {}).bank === 'far' ? 'far' : 'near';
@@ -2688,6 +2727,7 @@ function syncPeers(list) {
   if (arrived && npcOn().length) npcSay(npcOn()[0], '새 벗이 오셨구려. 어서 앉으시오', 5);
   if (list.length) peersSeen = true;
 }
+syncPeers([]);
 
 let ledgerDocs = [], weekDocs = [], ledgerTab = 'week';
 function renderLedger() {
@@ -2809,7 +2849,7 @@ async function saveRemote() {
 })();
 
 // 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
-if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, nbEmote, nbReact, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
