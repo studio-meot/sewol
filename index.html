@@ -965,7 +965,7 @@ function splash(p, s) {
     dPos.set([p.x, 0.1, p.z], j * 3); dVel.set([Math.cos(a) * h, rand(1.5, 2.8) * Math.sqrt(s), Math.sin(a) * h], j * 3); dLife[j] = 1;
   }
 }
-function splashSound(l, k) { sfx.splash(l.far ? 0.12 * k : 0.35 * k, l.x / 25); }
+function splashSound(l, k) { sfx.splash(l.far ? 0.25 * k : 0.6 * k, (l.x - me.position.x) / 25); }
 function startLeap(at) {
   const L = leapers.find(l => !l.visible); if (!L) return;
   const far = at ? false : Math.random() < 0.65;
@@ -2166,23 +2166,65 @@ $('ledgerClose').onclick = () => toggleLedger(false);
 
 /* ---------------- sound ---------------- */
 const sfx = (() => {
-  let ctx = null, master = null, noise = null, rainGain = null, rainLvl = -1, on = false, birdT = 0;
+  let ctx = null, master = null, noise = null, lapBuf = null, rainGain = null, rainLvl = -1, on = false, echoIn = null, swell = null, swellAt = 0, drift = 0;
+  let birdT = 4, dropT = 9, nightT = 6, windT = 70, owlT = 90;
+  // 갈색 잡음(물 흐르는 소리의 바탕). 고리 이음매에서 '틱' 하지 않도록 끝과 처음을 겹쳐 녹인다. 좌우는 서로 다른 잡음이라 넓게 퍼진다
+  function brown(sec) {
+    const sr = ctx.sampleRate, len = Math.floor(sr * sec), fade = Math.floor(sr * 0.5), b = ctx.createBuffer(2, len, sr);
+    for (let c = 0; c < 2; c++) {
+      const raw = new Float32Array(len + fade); let last = 0;
+      for (let i = 0; i < raw.length; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; raw[i] = last * 3.2; }
+      const d = b.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = i < fade ? raw[i] * (i / fade) + raw[len + i] * (1 - i / fade) : raw[i];
+    }
+    return b;
+  }
   function build() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
     master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
-    const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-    let last = 0; for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }
-    const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650;
-    const g = ctx.createGain(); g.gain.value = 0.5;
-    const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.13; lg.gain.value = 0.18; lfo.connect(lg); lg.connect(g.gain); lfo.start();
-    src.connect(lp); lp.connect(g); g.connect(master); src.start();
+    // 멀리 산에서 울려 오는 소리를 위한 메아리 길
+    echoIn = ctx.createGain();
+    const dl = ctx.createDelay(1), fb = ctx.createGain(), elp = ctx.createBiquadFilter(), wet = ctx.createGain();
+    dl.delayTime.value = 0.23; fb.gain.value = 0.3; elp.type = 'lowpass'; elp.frequency.value = 2200; wet.gain.value = 0.45;
+    echoIn.connect(dl); dl.connect(elp); elp.connect(fb); fb.connect(dl); elp.connect(wet); wet.connect(master);
+    // 아래 겹: 낮게 깔린 강의 흐름. 쉬익 하는 높은 결은 걷어낸다
+    const deep = ctx.createBufferSource(); deep.buffer = brown(13); deep.loop = true;
+    const dlp = ctx.createBiquadFilter(); dlp.type = 'lowpass'; dlp.frequency.value = 320; dlp.Q.value = 0.5;
+    const dg = ctx.createGain(); dg.gain.value = 0.42;
+    deep.connect(dlp); dlp.connect(dg); dg.connect(master); deep.start();
+    // 윗 겹: 물결이 부풀었다 가라앉는 소리. 크기는 tick에서 숨 쉬는 꼴로 그린다
+    const surf = ctx.createBufferSource(); surf.buffer = brown(9.7); surf.loop = true;
+    const sbp = ctx.createBiquadFilter(); sbp.type = 'bandpass'; sbp.frequency.value = 560; sbp.Q.value = 0.6;
+    const slp = ctx.createBiquadFilter(); slp.type = 'lowpass'; slp.frequency.value = 1100;
+    swell = ctx.createGain(); swell.gain.value = 0.12;
+    surf.connect(sbp); sbp.connect(slp); slp.connect(swell); swell.connect(master); surf.start();
+    swellAt = ctx.currentTime + 0.1; lapBuf = brown(3);
     noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate); const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     // 빗소리: 높은 쪽만 남긴 잡음
     const rb = ctx.createBufferSource(); rb.buffer = noise; rb.loop = true;
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 900;
     const lp2 = ctx.createBiquadFilter(); lp2.type = 'lowpass'; lp2.frequency.value = 6500;
     rainGain = ctx.createGain(); rainGain.gain.value = 0; rb.connect(hp); hp.connect(lp2); lp2.connect(rainGain); rainGain.connect(master); rb.start();
+  }
+  // 한 번 숨: 약 10초(분당 6번, 마음이 가장 편해지는 호흡 빠르기). 들숨 4할, 날숨 6할. 주기와 높이는 조금씩 흔들려 똑같이 되풀이되지 않는다
+  function breathe() {
+    drift = drift * 0.85 + (Math.random() - 0.5) * 0.12;
+    const P = 10 * Math.max(0.82, Math.min(1.18, 1 + drift)), t = Math.max(swellAt, ctx.currentTime + 0.02);
+    const lo = 0.1, hi = 0.38 + Math.random() * 0.14, up = P * 0.4;
+    for (let i = 1; i <= 8; i++) { const k = i / 8; swell.gain.linearRampToValueAtTime(lo + (hi - lo) * (1 - Math.cos(Math.PI * k)) / 2, t + up * k); }
+    for (let i = 1; i <= 12; i++) { const k = i / 12; swell.gain.linearRampToValueAtTime(hi - (hi - lo) * (1 - Math.cos(Math.PI * k)) / 2, t + up + (P - up) * k); }
+    if (Math.random() < 0.45) lap(t + up * (0.9 + Math.random() * 0.3), hi);
+    swellAt = t + P;
+  }
+  // 물결이 가장 높을 때 발밑 돌에 물이 찰랑 닿는 소리
+  function lap(when, k) {
+    // 하얀 잡음을 쓰면 '츳' 하고 높은 결이 튄다: 강물과 같은 갈색 잡음을 낮게 걸러 둥글게 찰랑
+    const src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = lapBuf; src.loop = true; bp.type = 'bandpass'; bp.frequency.value = 380 + Math.random() * 260; bp.Q.value = 1.1;
+    lp.type = 'lowpass'; lp.frequency.value = 900;
+    g.gain.setValueAtTime(0.0001, when); g.gain.exponentialRampToValueAtTime(0.5 * k, when + 0.28); g.gain.exponentialRampToValueAtTime(0.0001, when + 1.5);
+    src.connect(bp); bp.connect(lp); lp.connect(g); out(g, -0.5 + Math.random());
+    src.start(when, Math.random() * 2); src.stop(when + 1.6);
   }
   function out(node, pan) {
     if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)) * 0.8; node.connect(p); p.connect(master); }
@@ -2197,20 +2239,34 @@ const sfx = (() => {
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(o.vol, t + (o.att || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, t + o.dur);
     let node = osc;
     if (o.bp) { const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = o.bp; f.Q.value = o.q || 3; node.connect(f); node = f; }
-    node.connect(g); out(g, o.pan);
+    node.connect(g); out(g, o.pan); if (o.far && echoIn) g.connect(echoIn);
     osc.start(t); osc.stop(t + o.dur + 0.05);
   }
   const rnd = n => Math.floor(Math.random() * n);
+  // 바람 한 줄기: 쓸리는 잡음의 높이가 천천히 올라갔다 내려오고, 한쪽에서 다른 쪽으로 지나간다
+  function gust() {
+    const t = ctx.currentTime, d = 4.5 + Math.random() * 2, src = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noise; src.loop = true; bp.type = 'bandpass'; bp.Q.value = 0.7;
+    bp.frequency.setValueAtTime(800, t); bp.frequency.linearRampToValueAtTime(1700, t + d * 0.45); bp.frequency.linearRampToValueAtTime(1000, t + d);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.035, t + d * 0.45); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    src.connect(bp); bp.connect(g);
+    if (ctx.createStereoPanner) { const pn = ctx.createStereoPanner(), dir = Math.random() < 0.5 ? 1 : -1; pn.pan.setValueAtTime(-0.7 * dir, t); pn.pan.linearRampToValueAtTime(0.7 * dir, t + d); g.connect(pn); pn.connect(master); } else g.connect(master);
+    src.start(t); src.stop(t + d + 0.1);
+  }
   const CALLS = {
     deep(p, v) { voice({ f0: 85, f1: 52, dur: 2.2, vol: 0.07 * v, type: 'triangle', att: 0.8, pan: p }); voice({ f0: 170, f1: 104, dur: 1.6, vol: 0.015 * v, type: 'sawtooth', bp: 300, q: 1, att: 0.5, pan: p }); },
     rabbit(p, v) { [0, 0.11].forEach(at => voice({ f0: 1900, f1: 2600, dur: 0.07, vol: 0.035 * v, at, pan: p })); },
     deer(p, v) { voice({ f0: 820, f1: 560, dur: 0.32, vol: 0.05 * v, type: 'triangle', att: 0.03, pan: p }); },
     clink(p, v) { voice({ f0: 2350, f1: 2330, dur: 0.35, vol: 0.05 * v, pan: p }); voice({ f0: 3520, f1: 3500, dur: 0.25, vol: 0.03 * v, at: 0.01, pan: p }); },
-    chirp(p, v) { const n = 3 + rnd(3); for (let i = 0; i < n; i++) { const b = 3300 + Math.random() * 1400; voice({ f0: b, f1: b * (Math.random() < 0.5 ? 1.3 : 0.75), dur: 0.05 + Math.random() * 0.04, vol: 0.05 * v, at: i * 0.09, pan: p }); } },
+    chirp(p, v) { const n = 3 + rnd(3); for (let i = 0; i < n; i++) { const b = 3300 + Math.random() * 1400; voice({ f0: b, f1: b * (Math.random() < 0.5 ? 1.3 : 0.75), dur: 0.05 + Math.random() * 0.04, vol: 0.05 * v, at: i * 0.09, pan: p, far: v < 0.5 }); } },
     song(p, v) {
       const base = 2300 + Math.random() * 900, n = 5 + rnd(5), lilt = 1 + Math.random() * 2;
-      for (let i = 0; i < n; i++) { const f = base * (1 + 0.22 * Math.sin(i * lilt)); voice({ f0: f, f1: f * (i === n - 1 ? 0.7 : 1.18), dur: i === n - 1 ? 0.22 : 0.07, vol: 0.04 * v, at: i * 0.11 + (i > n / 2 ? 0.18 : 0), pan: p }); }
+      for (let i = 0; i < n; i++) { const f = base * (1 + 0.22 * Math.sin(i * lilt)); voice({ f0: f, f1: f * (i === n - 1 ? 0.7 : 1.18), dur: i === n - 1 ? 0.22 : 0.07, vol: 0.04 * v, at: i * 0.11 + (i > n / 2 ? 0.18 : 0), pan: p, far: v < 0.5 }); }
     },
+    drop(p, v) { const f = 1500 + Math.random() * 700; voice({ f0: f, f1: f * 1.7, dur: 0.05, vol: 0.05 * v, att: 0.004, pan: p, far: true }); if (Math.random() < 0.4) voice({ f0: f * 1.3, f1: f * 2.1, dur: 0.04, vol: 0.025 * v, at: 0.16 + Math.random() * 0.1, att: 0.004, pan: p, far: true }); },
+    cricket(p, v) { const f = 4200 + Math.random() * 500, n = 3 + rnd(3); for (let r = 0; r < n; r++) for (let i = 0; i < 3; i++) voice({ f0: f, f1: f * 0.98, dur: 0.022, vol: 0.012 * v, at: r * 0.42 + i * 0.045, att: 0.004, pan: p }); },
+    frog(p, v) { const n = 2 + rnd(2); for (let i = 0; i < n; i++) voice({ f0: 290, f1: 400, dur: 0.11, vol: 0.03 * v, type: 'sawtooth', bp: 850, q: 3, at: i * 0.2, att: 0.02, pan: p, far: true }); },
+    owl(p, v) { voice({ f0: 410, f1: 385, dur: 0.38, vol: 0.035 * v, att: 0.08, pan: p, far: true }); voice({ f0: 400, f1: 360, dur: 0.75, vol: 0.03 * v, at: 0.62, att: 0.12, pan: p, far: true }); },
     egret(p, v) { voice({ f0: 380, f1: 250, dur: 0.34, vol: 0.08 * v, type: 'sawtooth', bp: 700, q: 2, att: 0.02, pan: p }); },
     honk(p, v) { const k = 1 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 540, f1: 440, dur: 0.2, vol: 0.06 * v, type: 'sawtooth', bp: 1000, q: 4, at: i * 0.3, att: 0.03, pan: p }); },
     caw(p, v) { const k = 2 + rnd(2); for (let i = 0; i < k; i++) voice({ f0: 640, f1: 470, dur: 0.28, vol: 0.06 * v, type: 'sawtooth', bp: 1300, q: 1.5, at: i * 0.42, att: 0.02, pan: p }); },
@@ -2248,16 +2304,37 @@ const sfx = (() => {
       if (!ctx || !on) return;
       // 작은 물방울 몇 개만 똑, 또독
       const n = 2 + rnd(3);
-      for (let i = 0; i < n; i++) { const d = 900 + Math.random() * 700; voice({ f0: d, f1: d * 1.6, dur: 0.05, vol: vol * 0.12, at: i * (0.08 + Math.random() * 0.12), att: 0.004, pan }); }
+      for (let i = 0; i < n; i++) { const d = 1400 + Math.random() * 800; voice({ f0: d, f1: d * 1.6, dur: 0.05, vol: vol * 0.2, at: i * (0.08 + Math.random() * 0.12), att: 0.004, pan }); }
     },
-    // 버드나무 쪽에서 들려오는 새소리. 봄·여름엔 지저귐, 가을엔 드문드문, 겨울엔 멀리서 까마귀
+    // 강가의 소리 짜임. 숨 쉬는 강물 위로, 시간대와 계절마다 산새·물방울·풀벌레·바람이 드문드문 얹힌다
     tick(dt) {
-      if (!on) return; birdT -= dt;
-      if (birdT > 0) return;
-      const s = curSeason < 0 ? 0 : curSeason, p = -0.5 + Math.random() * 0.4;
-      if (s === 3) { birdT = 25 + Math.random() * 25; CALLS.caw(0.6, 0.4); }
-      else if (s === 2) { birdT = 20 + Math.random() * 25; CALLS.chirp(p, 0.5); }
-      else { birdT = 11 + Math.random() * 18; Math.random() < 0.7 ? CALLS.song(p, 0.6) : CALLS.chirp(p, 0.6); }
+      if (!on) return;
+      if (ctx.currentTime > swellAt - 0.3) breathe();
+      const s = curSeason < 0 ? 0 : curSeason, tod = curTod < 0 ? 2 : curTod, far = () => -0.85 + Math.random() * 1.7;
+      // 산새: 새벽엔 서로 주고받고, 낮엔 드문드문, 해질녘엔 몇 마디, 밤엔 잠든다. 겨울엔 멀리 까마귀만
+      if ((birdT -= dt) <= 0) {
+        if (tod === 0) birdT = 30;
+        else if (s === 3) { birdT = 40 + Math.random() * 40; if (tod !== 3 || Math.random() < 0.5) CALLS.caw(far(), 0.3); }
+        else {
+          const gap = tod === 1 ? [6, 14] : tod === 3 ? [25, 45] : s === 2 ? [22, 45] : [14, 30];
+          birdT = gap[0] + Math.random() * (gap[1] - gap[0]);
+          const p = far(), sing = s !== 2 && tod !== 3 && Math.random() < 0.7;
+          sing ? CALLS.song(p, 0.45) : CALLS.chirp(p, 0.4);
+          if (tod === 1 && Math.random() < 0.45) setTimeout(() => on && CALLS.song(-p * 0.8, 0.35), 1200 + Math.random() * 1300); // 건너편 새가 받아 운다
+        }
+      }
+      // 물방울 하나: 똑, 또는 또독
+      if ((dropT -= dt) <= 0) { dropT = (s === 3 ? 35 : 18) + Math.random() * 30; CALLS.drop(far(), 0.6 + Math.random() * 0.4); }
+      // 밤: 여름·가을 풀벌레, 봄 개구리. 겨울밤은 고요하다
+      if (tod === 0 && (nightT -= dt) <= 0) {
+        if (s === 1 || s === 2) { nightT = 5 + Math.random() * 9; CALLS.cricket(far(), s === 2 ? 0.7 : 1); }
+        else if (s === 0) { nightT = 9 + Math.random() * 10; CALLS.frog(far(), 0.8); }
+        else nightT = 30;
+      }
+      // 아주 가끔 부엉이 (밤에만)
+      if (tod === 0 && (owlT -= dt) <= 0) { owlT = 80 + Math.random() * 90; if (Math.random() < 0.6) CALLS.owl(far(), 0.9); }
+      // 몇 분에 한 번 바람 한 줄기가 갈대를 쓸고 지나간다
+      if ((windT -= dt) <= 0) { windT = (s === 3 ? 70 : 110) + Math.random() * 90; gust(); }
     }
   };
 })();
