@@ -1205,7 +1205,7 @@ function pickAt(cx, cy) {
   sotdae.forEach(sd => cands.push({ obj: sd.g, y: 6, r: 60, hit: () => pokeSotdae(sd) }));
   if (crane.visible) cands.push({ obj: crane, y: 0.4, r: 70, hit: pokeCrane });
   if (magpie.visible) cands.push({ obj: magpie, y: 0, r: 60, hit: pokeMagpie });
-  lanterns.forEach(L => { if (L.owner === 'blank' && L.t < LANTERN_LIFE - 3) cands.push({ obj: L.g, y: 0.36, r: 48, hit: () => pickBlank(L) }); });
+  lanterns.forEach(L => { if (L.owner === 'blank' && L.t < LANTERN_LIFE - 3) cands.push({ obj: L.g, y: 0.45, r: 56, hit: () => pickBlank(L) }); });
   [me, ...[...others.values()].map(o => o.g)].forEach(a => { const b = a.userData.perch; if (b && b.visible && !b.userData.fly) cands.push({ obj: b, world: true, y: 0, r: 34, hit: () => shooPerch(b, a === me) }); });
   let best = null, bd = Infinity;
   for (const c of cands) {
@@ -1286,10 +1286,10 @@ function wishTex(word) {
 }
 function spawnLantern(word, x, z, owner) {
   const g = new THREE.Group();
-  const body = new THREE.Sprite(new THREE.SpriteMaterial({ map: wishTex(word), transparent: true, depthWrite: false, opacity: 0 }));
-  body.scale.set(0.46, 0.58, 1); body.position.y = 0.36; g.add(body);
+  const body = new THREE.Sprite(new THREE.SpriteMaterial({ map: wishTex(word), transparent: true, depthWrite: false, opacity: 0, fog: false }));
+  body.scale.set(0.62, 0.78, 1); body.position.y = 0.45; g.add(body);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: lanternGlow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
-  glow.scale.set(1.2, 1.2, 1); glow.position.y = 0.36; g.add(glow);
+  glow.scale.set(1.6, 1.6, 1); glow.position.y = 0.45; g.add(glow);
   const shine = new THREE.Sprite(new THREE.SpriteMaterial({ map: lanternGlow, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
   shine.scale.set(0.3, 1, 1); shine.position.y = -0.2; g.add(shine); // 물에 비친 불빛
   g.position.set(x, 0, z); scene.add(g);
@@ -1304,8 +1304,8 @@ function updateLanterns(dt) {
     L.body.material.rotation = Math.sin(t * 0.9 + L.ph) * 0.07;
     const fade = Math.max(0, Math.min(1, L.t / 2.5, (LANTERN_LIFE - L.t) / 10));
     L.body.material.opacity = fade;
-    L.glow.material.opacity = (0.15 + 0.5 * night) * fade * (0.9 + 0.1 * Math.sin(t * 3.1 + L.ph));
-    L.shine.material.opacity = (0.08 + 0.4 * night) * fade;
+    L.glow.material.opacity = (0.35 + 0.35 * night) * fade * (0.9 + 0.1 * Math.sin(t * 3.1 + L.ph));
+    L.shine.material.opacity = (0.18 + 0.3 * night) * fade;
     if (L.t >= LANTERN_LIFE) {
       scene.remove(L.g); L.body.material.map.dispose(); L.body.material.dispose(); L.glow.material.dispose(); L.shine.material.dispose();
       lanterns.splice(i, 1);
