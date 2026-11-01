@@ -2610,22 +2610,14 @@ let nbSeq = 0;
 const nbList = () => [...others.keys()].filter(k => k.startsWith('nb-'));
 const pickOf = l => l[Math.floor(Math.random() * l.length)];
 function nbEmote(peer, em) { if (!others.has(peer)) return; peerEmote.set(peer, { ...em, n: ++nbSeq }); syncPeers(withGrace(freshPeers)); }
-// 내 몸짓에 이웃이 사람처럼, 늘은 아니게 답한다
+// 이웃은 먼저 나서지 않는다. 내 몸짓에 2~4초 뜸을 들여, 늘은 아니게 답한다
 function nbReact(kind, to) {
   const l = nbList(); if (!l.length) return;
-  if (kind === 'tea' && to && to.startsWith('nb-')) setTimeout(() => nbEmote(to, { k: 'thank', i: 0, to: S.tabId }), rand(2600, 4200));
-  else if (kind === 'wave' && Math.random() < 0.5) setTimeout(() => nbEmote(pickOf(l), { k: 'wave', i: Math.floor(Math.random() * WAVE.length) }), rand(1200, 2800));
-  else if (kind === 'bow' && Math.random() < 0.35) setTimeout(() => nbEmote(pickOf(l), { k: 'bow', i: Math.floor(Math.random() * BOW.length) }), rand(1500, 3200));
+  if (kind === 'tea' && to && to.startsWith('nb-')) setTimeout(() => nbEmote(to, { k: 'thank', i: 0, to: S.tabId }), rand(2000, 4000));
+  else if (kind === 'wave' && Math.random() < 0.5) setTimeout(() => nbEmote(pickOf(l), { k: 'wave', i: Math.floor(Math.random() * WAVE.length) }), rand(2000, 4000));
+  else if (kind === 'bow' && Math.random() < 0.35) setTimeout(() => nbEmote(pickOf(l), { k: 'bow', i: Math.floor(Math.random() * BOW.length) }), rand(2000, 4000));
 }
-setInterval(() => {
-  syncPeers(withGrace(freshPeers)); // 이웃이 오고 간다
-  const l = nbList(); if (!l.length || document.hidden || Math.random() > 0.07) return; // 몇 분에 한 번쯤 혼자서도 무언가 한다
-  const p = pickOf(l), o = others.get(p), r = Math.random();
-  if (r < 0.1) nbEmote(p, { k: 'tea', i: Math.floor(Math.random() * TEA_GIVE.length), to: S.tabId });
-  else if (r < 0.4 && o.bank !== S.bank) nbEmote(p, { k: 'wave', i: Math.floor(Math.random() * WAVE.length) });
-  else if (r < 0.7) nbEmote(p, { k: 'poem', i: Math.floor(Math.random() * POEMS.length) });
-  else nbEmote(p, { k: 'bow', i: Math.floor(Math.random() * BOW.length) });
-}, 15000);
+setInterval(() => syncPeers(withGrace(freshPeers)), 15000); // 이웃이 오고 간다
 
 let peersSeen = false, seatMoveCool = 0;
 // 폰을 잠깐 내려놓거나 망이 흔들려 끊긴 사람은 바로 지우지 않고 25초 동안 자리를 지켜 준다
