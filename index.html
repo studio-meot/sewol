@@ -389,12 +389,14 @@ const S = {
   total: store.get('total', 0),
   best: store.get('best', 0),
   week: store.get('week', ''), weekBest: store.get('weekBest', 0),
-  kingSeen: false,
+  kingSeen: store.get('kingSeen', false),
   nextAmbient: 18,
-  shown: new Set(),
+  shown: new Set(store.get('shown', [])), // 한 번 본 장면은 다시 접속해도 되풀이하지 않는다
   uid: null, db: null, room: null, user: null,
   savedTotal: -1
 };
+// 저장된 기록이 없던 예전 손님은, 이미 지나온 장면을 본 것으로 친다
+if (store.get('shown') == null) { if (S.session >= 360) S.shown.add('v1'); if (S.session >= 1800) S.shown.add('v5'); if (S.session >= KING_AT) S.kingSeen = true; store.set('shown', [...S.shown]); }
 
 function fmt(days) {
   const d = Math.floor(days);
@@ -2044,7 +2046,7 @@ function recordLedger() {
   if (d > S.weekBest) S.weekBest = d;
   store.set('week', S.week); store.set('weekBest', S.weekBest);
   S.session = 0; store.set('session', 0);
-  S.shown.clear(); S.kingSeen = false;
+  S.shown = new Set([...S.shown].filter(k => k === 'v1' || k === 'v5')); store.set('shown', [...S.shown]); S.kingSeen = false; store.set('kingSeen', false);
   saveRemote();
   const [title, text, stamp] = catchOf(d);
   $('rTitle').textContent = title; $('rDur').textContent = `이번에 적은 세월 ${fmt(d)}`; $('rText').textContent = text; $('rStamp').textContent = stamp;
@@ -2524,14 +2526,14 @@ const CHEER = [
 let cheerCool = 0;
 const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오', '음, 바늘보다 시가 더 곧구려', '허허, 그 시 어디서 배웠소?', '듣기 좋구려. 한 번만 더 읊어 주시오', '강물도 귀를 기울였겠소', '시 한 수에 차 한잔이 생각나는구려'];
 // 처음 온 사람 곁을 맴돌며 해 보인다. 어디까지 했는지는 브라우저에 남겨 둔다
-let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 50, greeted = tutStep < 8; // 처음 온 사람에겐 '또 오셨구려' 인사를 하지 않는다
+let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 50, greeted = tutStep < 8 || store.get('greetDay') === kstDay(); // 처음 온 사람에겐, 그리고 하루 두 번은 '또 오셨구려' 인사를 하지 않는다
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
 const G = () => GUIDE;
 function tickNpc(dt) {
   updateElders(dt);
   tutT += dt;
   if (tutStep >= 8 && !greeted && tutT > 4) {
-    greeted = true;
+    greeted = true; store.set('greetDay', kstDay());
     const n = store.get('visits', 1), ORD = ['', '첫', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열'];
     npcCall(() => { G().g.userData.bowT = 2.4; npcSay(G(), n >= 2 ? `${n <= 10 ? ORD[n] + ' ' : n}번째 찾아오셨구려. 오늘도 평안하시오` : '또 오셨구려. 오늘도 평안하시오', 6, true); });
     return;
@@ -2899,17 +2901,18 @@ function placeLabel(el, obj, y) {
   el.style.left = ((proj.x + 1) / 2 * innerWidth) + 'px';
   el.style.top = ((1 - proj.y) / 2 * innerHeight) + 'px';
 }
+const markShown = k => { S.shown.add(k); store.set('shown', [...S.shown]); };
 let saveTimer = 0, uiTimer = 0, lookTimer = 0;
 function frame() {
   const dt = Math.min(0.25, clock.getDelta()); t += dt;
   if (S.fishing) {
     S.session += dt * DAY;
     const d = Math.floor(S.session);
-    if (MILESTONES[d] && !S.shown.has(d)) { S.shown.add(d); murmur(MILESTONES[d]); }
-    if (d >= 360 && !S.shown.has('v1')) { S.shown.add('v1'); npcCall(() => { GUIDE.g.userData.bowT = 2.4; npcSay(GUIDE, '허허, 일 년째 그 자리시구려', 5, true); setTimeout(() => say(me, '허허, 세월이 그리 됐소', 4), 4200); }); }
-    if (d >= 1800 && !S.shown.has('v5')) { S.shown.add('v5'); startVisit('kids'); }
-    if (d > 0 && d % 90 === 0 && !S.shown.has('s' + d)) { S.shown.add('s' + d); if (!MILESTONES[d]) murmur(`${SEASONS[seasonOf(S.total + S.session)]}이 왔어요`); }
-    if (d >= KING_AT && !S.kingSeen) { S.kingSeen = true; summonKing(); sfx.gong(); }
+    if (MILESTONES[d] && !S.shown.has(d)) { markShown(d); murmur(MILESTONES[d]); }
+    if (d >= 360 && !S.shown.has('v1')) { markShown('v1'); npcCall(() => { GUIDE.g.userData.bowT = 2.4; npcSay(GUIDE, '허허, 일 년째 그 자리시구려', 5, true); setTimeout(() => say(me, '허허, 세월이 그리 됐소', 4), 4200); }); }
+    if (d >= 1800 && !S.shown.has('v5')) { markShown('v5'); startVisit('kids'); }
+    if (d > 0 && d % 90 === 0 && !S.shown.has('s' + d)) { markShown('s' + d); if (!MILESTONES[d]) murmur(`${SEASONS[seasonOf(S.total + S.session)]}이 왔어요`); }
+    if (d >= KING_AT && !S.kingSeen) { S.kingSeen = true; store.set('kingSeen', true); summonKing(); sfx.gong(); }
     S.nextAmbient -= dt;
     if (S.nextAmbient <= 0 && me.userData.cast > 0.9) {
       S.nextAmbient = 50 + Math.random() * 50;
