@@ -264,12 +264,24 @@ const POEMS = [
   '구름이 바늘에 걸렸다 풀려 간다',
   '천 년을 흘러도 강은 늙지 않는다',
   '내 수염이 길어지는 동안 강은 그대로다',
-  '바쁜 놈은 고기를 낚고 한가한 놈은 하루를 낚는다'
+  '바쁜 놈은 고기를 낚고 한가한 놈은 하루를 낚는다',
+  '강은 한 번도 같은 물로 흐르지 않는다',
+  '미끼 없는 바늘에 마음만 걸린다',
+  '물결이 잦아들면 하늘이 비친다',
+  '찌가 졸면 나도 존다',
+  '고기 대신 노을을 한 바구니 낚았다',
+  '서두르는 물은 소리만 크다',
+  '바람이 지나간 자리에 고요가 앉는다',
+  '오늘의 빈손이 내일의 넉넉함이다',
+  '강 건너 사람도 나만큼 한가하겠지',
+  '흘러가게 두면 다 흘러간다',
+  '앉은 자리가 꽃자리라',
+  '물 위에 뜬 달은 건져도 젖지 않는다'
 ];
-const TEA = ['(후루룩…)', '차가 식기 전에 강이 먼저 식는구나', '(따뜻하다)', '차 맛이 강물 맛이구려', '(호오— 김을 분다)', '한 모금에 하루가 간다'];
-const TEA_GIVE = ['차 한잔 드시오', '식기 전에 드시구려', '강바람이 차오. 한잔 하시오', '손이 시리면 이걸 쥐시오', '세월 낚는 데는 차가 제일이오', '내 몫까지 한잔 더 데웠소'];
-const BOW = ['(읍)', '강가의 벗들께 인사드리오', '(고개를 숙인다)', '오늘도 무사히 공치시오', '(공손히 손을 모은다)'];
-const WAVE = ['(손을 흔든다)', '어이— 거기 계시오?', '반갑소!', '여기요, 여기!', '거기 바람은 어떻소?', '고기 좀 무오?', '나도 여기 있소!'];
+const TEA = ['(후루룩…)', '차가 식기 전에 강이 먼저 식는구나', '(따뜻하다)', '차 맛이 강물 맛이구려', '(호오— 김을 분다)', '한 모금에 하루가 간다', '(두 손으로 감싸 쥔다)', '강바람에 차 향이 섞이는구나', '(찻잔에 하늘이 담겼다)', '천천히 마셔야 오래 따뜻하다'];
+const TEA_GIVE = ['차 한잔 드시오', '식기 전에 드시구려', '강바람이 차오. 한잔 하시오', '손이 시리면 이걸 쥐시오', '세월 낚는 데는 차가 제일이오', '내 몫까지 한잔 더 데웠소', '물 끓인 김에 한잔 더 따랐소', '쉬엄쉬엄 하시오. 차나 한잔', '이 차는 공짜요. 세월만 조금 내시오', '추운데 고생 많소. 한잔 드시오'];
+const BOW = ['(읍)', '강가의 벗들께 인사드리오', '(고개를 숙인다)', '오늘도 무사히 공치시오', '(공손히 손을 모은다)', '오늘도 평안하시오', '(허리를 깊이 숙인다)', '좋은 강가에서 뵙소', '같이 앉아 있어 든든하오'];
+const WAVE = ['(손을 흔든다)', '어이— 거기 계시오?', '반갑소!', '여기요, 여기!', '거기 바람은 어떻소?', '고기 좀 무오?', '나도 여기 있소!', '거기 강물은 어떻소?', '(삿갓을 들어 보인다)', '천천히 낚으시오!', '오늘 날 좋구려!'];
 const AMBIENT = [
   '잉어가 곧은 바늘을 보고 웃으며 지나갔어요',
   '바람이 찌를 살짝 흔들고 갔어요',
@@ -287,7 +299,11 @@ const AMBIENT = [
   '찌가 꾸벅 졸았어요',
   '강물이 조금 더 느려진 것 같아요',
   '저 멀리서 개 짖는 소리가 났어요',
-  '잠자리가 낚싯대 끝에서 쉬어 갔어요'
+  '잠자리가 낚싯대 끝에서 쉬어 갔어요',
+  '물방울 하나가 찌 위에 앉았다 굴러떨어졌어요',
+  '송사리 떼가 발밑을 한 바퀴 돌고 갔어요',
+  '바람에 실려 온 꽃잎 하나가 물에 떴어요',
+  '삿갓 그늘이 조금 옆으로 옮겨 갔어요'
 ];
 const MILESTONES = {
   1: '첫날. 바늘이 곧아도 마음은 굽지 않았어요',
@@ -2146,7 +2162,7 @@ function emote(kind) {
     const c = npcPick();
     i = Math.floor(Math.random() * TEA_GIVE.length); say(me, TEA_GIVE[i]);
     flyTea(me, c.g); toast(`${c.name}님께 차 한잔을 건넸어요`); give = true;
-    setTimeout(() => npcSay(c, '고맙소, 따뜻하구려', 4), 1400);
+    setTimeout(() => npcSay(c, pick(THANKS), 4), 1400);
   } else {
     const list = kind === 'poem' ? POEMS : kind === 'tea' ? TEA : kind === 'wave' ? WAVE : BOW;
     i = Math.floor(Math.random() * list.length);
@@ -2403,8 +2419,8 @@ const NPCS = [
   { name: '지게 진 나무꾼', robe: '#7a5a3e', wood: true, guide: true, lines: ['나무하러 오가며 늘 보았소', '이 길은 천천히 걸어야 제맛이오', '지게가 가벼운 날은 마음도 가볍소', '오늘은 산이 말이 많구려'] },
   { name: '약초 캐는 할배', robe: '#6b6a4e', herb: true, lines: ['이 산엔 약초보다 세월이 더 많소', '쉬엄쉬엄 가시오. 약초도 천천히 자라오', '저 산 너머 노루가 또 기웃거리는군', '바람이 바뀌었소. 계절이 오려나 보오'] }
 ];
-const NPC_LINES = ['강물 소리에 귀가 씻기는구려', '산그림자가 한 뼘 길어졌구려', '고기가 안 무는 날이 제일 좋은 날이오', '어제 낚은 세월은 어디 두셨소?', '십 년을 앉아 있으면 왕이 온다더이다', '여기선 아무것도 안 해도 괜찮소', '허허, 오늘도 평안하시오', '천천히 걸어도 다 닿는다오'];
-const ELDER_HELLO = ['평안하시오', '허허, 오래 앉으셨구려', '오늘 강이 좋지요?', '세월 많이 낚으시오', '(꾸벅)'];
+const NPC_LINES = ['강물 소리에 귀가 씻기는구려', '산그림자가 한 뼘 길어졌구려', '고기가 안 무는 날이 제일 좋은 날이오', '어제 낚은 세월은 어디 두셨소?', '십 년을 앉아 있으면 왕이 온다더이다', '여기선 아무것도 안 해도 괜찮소', '허허, 오늘도 평안하시오', '천천히 걸어도 다 닿는다오', '물은 낮은 데로 흘러도 부끄러워하지 않소', '오늘 바람이 순하구려', '이 길을 몇십 년을 걸어도 질리질 않소', '고기가 안 물면 하늘을 보면 되오', '저기 구름 좀 보시오. 느긋하기도 하지', '강가에선 다들 조금씩 착해진다오', '늙으니 좋은 게 하나 있소. 급할 게 없소', '물새가 오늘은 기분이 좋은가 보오'];
+const ELDER_HELLO = ['평안하시오', '허허, 오래 앉으셨구려', '오늘 강이 좋지요?', '세월 많이 낚으시오', '(꾸벅)', '반갑소', '허허, 낯이 익구려', '좋은 자리 잡으셨소', '바람 괜찮소?', '오늘도 오셨구려', '(삿갓을 살짝 든다)'];
 NPCS.forEach((c, i) => {
   c.g = makeWalker(c);
   const u = c.g.userData; if (u.beard) { u.beard.scale.set(1.35, 2.3, 1.35); u.beard.position.y -= 0.44; }
@@ -2436,6 +2452,12 @@ function updateElders(dt) {
     c.t += dt;
     c.z += ((c.mode === 'come' ? mySeat().z + 0.25 : 2.6) - c.z) * Math.min(1, dt * 0.8); // 곁에 올 땐 나란히 선다
     if (c.mode === 'come') { c.tx = mx + (c.x >= mx ? 2.3 : -2.3); if (Math.abs(c.x - mx) > 18) c.x = mx + Math.sign(c.x - mx) * 15; } // 멀리 있으면 화면 밖에서 가까이 와서 걸어 들어온다
+    // 내 뒤를 지나가다 가끔 툭 한마디. 너무 잦지 않게 두어 분에 한 번까지만
+    const near = c.bank === S.bank && Math.abs(c.x - mx) < 2.5;
+    if (near && !c.passed && c.mode === 'stroll' && tutStep >= 8) {
+      c.passed = true;
+      if (performance.now() > cheerCool && Math.random() < 0.45) { cheerCool = performance.now() + 120000; npcSay(c, pick(CHEER), 6); }
+    } else if (!near && Math.abs(c.x - mx) > 8) c.passed = false;
     const dx = c.tx - c.x, walking = c.idle <= 0 && Math.abs(dx) > 0.06;
     if (walking) { c.x += Math.sign(dx) * Math.min(Math.abs(dx), 1.15 * dt); c.head = dx > 0 ? -Math.PI / 2 : Math.PI / 2; }
     else if (c.idle > 0) c.idle -= dt;
@@ -2445,7 +2467,7 @@ function updateElders(dt) {
       if (fn) { fn(); c.idle = 5; } else { c.mode = 'stroll'; c.idle = rand(6, 12); }
     } else if (c.mode === 'visit') {
       c.head = (c.visitX > c.x ? -1 : 1) * 0.9; c.g.userData.bowT = 2.4;
-      if (c.bank === S.bank) npcSay(c, ELDER_HELLO[Math.floor(Math.random() * ELDER_HELLO.length)], 4, true);
+      if (c.bank === S.bank) npcSay(c, Math.random() < 0.35 ? pick(CHEER) : pick(ELDER_HELLO), 5, true);
       c.mode = 'stroll'; c.idle = rand(5, 9);
     } else if (c.mode === 'leave') { c.on = false; c.g.visible = false; c.tag.hidden = true; c.away = rand(300, 720); c.mode = 'stroll'; continue; }
     else if (!c.rest) { c.rest = true; c.head = Math.random() < 0.6 ? 0 : c.head; c.idle = rand(6, 16); } // 멈춰 서서 강을 본다
@@ -2482,7 +2504,22 @@ function elderLantern(c, w) {
   spawnLantern(w, c.g.position.x + rand(-0.5, 0.5), c.g.position.z - side * 3.4, 'npc');
   c.g.userData.bowT = 2.4; npcSay(c, `‘${w}’`, 3, true);
 }
-const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오', '음, 바늘보다 시가 더 곧구려'];
+const pick = l => l[Math.floor(Math.random() * l.length)];
+const THANKS = ['고맙소, 잘 마시겠소', '고맙소, 따뜻하구려', '허허, 이거 귀한 걸', '잘 마시겠소. 덕분에 손이 녹소', '아이고, 고맙소', '차 향이 좋구려. 고맙소'];
+const BOW_BACK = ['(맞읍)', '(마주 고개를 숙인다)', '허허, 예를 아시는구려', '(공손히 맞읍한다)'];
+const WAVE_BACK = ['허허, 반갑소', '어이— 여기 있소', '(삿갓을 흔든다)', '반갑구려!'];
+const NEW_FRIEND = ['새 벗이 오셨구려. 어서 앉으시오', '허허, 강가가 북적이는구려', '어서 오시오. 좋은 때 오셨소', '반가운 얼굴이 하나 늘었구려'];
+// 할배들이 지나가다 툭 건네는 따뜻한 말
+const CHEER = [
+  '애쓰셨소. 오늘 하루도 잘 견뎠구려', '잘하고 있소. 정말이오', '천천히 가도 괜찮소. 늦은 게 아니오', '오늘 못 한 건 내일 해도 되오',
+  '여기 앉아 있는 것만으로도 충분하오', '걱정은 강물에 띄워 보내시오. 알아서 흘러가오', '힘든 날도 지나가오. 강물처럼', '누가 뭐래도 그대 걸음으로 가면 되오',
+  '숨 한번 크게 쉬어 보시오. 허허, 그렇지', '고생 많았소. 오늘은 좀 쉬어도 되오', '그대가 와서 강가가 환해졌구려', '잘 될 거요. 이 늙은이가 장담하오',
+  '비 온 뒤에 땅이 굳는 법이오', '조급해 마시오. 꽃도 제때 피오', '그대만 그런 게 아니오. 다들 그렇게 사오', '오늘 하루, 참 잘 버텼소',
+  '쉬어 가는 것도 길이오', '마음이 무거우면 여기 잠깐 내려놓고 가시오', '밥은 챙겨 드셨소? 그게 제일이오', '어제보다 오늘이 조금 나으면 그걸로 됐소',
+  '큰 고기는 늘 기다리는 사람한테 오오', '지금 이대로도 괜찮은 사람이오', '그대 등이 아까보다 한결 편해 보이오', '애쓰지 않아도 되는 데가 하나쯤은 있어야지. 여기가 그렇소'
+];
+let cheerCool = 0;
+const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오', '음, 바늘보다 시가 더 곧구려', '허허, 그 시 어디서 배웠소?', '듣기 좋구려. 한 번만 더 읊어 주시오', '강물도 귀를 기울였겠소', '시 한 수에 차 한잔이 생각나는구려'];
 // 처음 온 사람 곁을 맴돌며 해 보인다. 어디까지 했는지는 브라우저에 남겨 둔다
 let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 50, greeted = tutStep < 8; // 처음 온 사람에겐 '또 오셨구려' 인사를 하지 않는다
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
@@ -2514,13 +2551,14 @@ function tickNpc(dt) {
   if (npcT > 0) return;
   npcT = 150 + Math.random() * 150;
   const c = npcPick();
-  if (!c) { const far = NPCS.find(n => n.bank !== S.bank && Math.abs(n.g.position.x - me.position.x) < 20); if (far && Math.random() < 0.5) { far.g.userData.waveT = 2.8; say(far.g, '어이—', 3); } return; } // 강 건너에서 손을 흔들어 준다
+  if (!c) { const far = NPCS.find(n => n.bank !== S.bank && Math.abs(n.g.position.x - me.position.x) < 20); if (far && Math.random() < 0.5) { far.g.userData.waveT = 2.8; say(far.g, pick(['어이—', '어이— 평안하시오?', '(손을 크게 흔든다)']), 3); } return; } // 강 건너에서 손을 흔들어 준다
   const r = Math.random(), mine = c.lines;
-  if (r < 0.3) npcSay(c, mine[Math.floor(Math.random() * mine.length)]);
+  if (Math.random() < 0.3) { npcSay(c, pick(CHEER), 6); cheerCool = performance.now() + 120000; }
+  else if (r < 0.3) npcSay(c, mine[Math.floor(Math.random() * mine.length)]);
   else if (r < 0.5) npcSay(c, NPC_LINES[Math.floor(Math.random() * NPC_LINES.length)]);
   else if (r < 0.62) npcSay(c, POEMS[Math.floor(Math.random() * POEMS.length)]);
   else if (r < 0.74 && S.fishing && c === GUIDE) npcCall(() => npcTea(GUIDE, false));
-  else if (r < 0.84) { c.g.userData.bowT = 2.4; npcSay(c, BOW[1], 4); }
+  else if (r < 0.84) { c.g.userData.bowT = 2.4; npcSay(c, pick(BOW.slice(1)), 4); }
   else if (!lanterns.some(L => L.owner === 'npc')) elderLantern(c, WISHES[Math.floor(Math.random() * 6)]);
 }
 function npcOnRecord() {
@@ -2531,8 +2569,8 @@ function npcOnRecord() {
 // 내가 한 일에 곁에 있는 할배가 답한다
 function npcReact(kind) {
   const c = npcPick(); if (!c || performance.now() < hurryUntil - 5000) return; // 방금 한마디 했으면 잠자코 있는다
-  if (kind === 'bow') setTimeout(() => { c.g.userData.bowT = 2.4; npcSay(c, '(맞읍)', 3); }, 1100);
-  else if (kind === 'wave') npcOn().forEach((n, k) => setTimeout(() => { n.g.userData.waveT = 2.8; if (k === 0) npcSay(n, '허허, 반갑소', 3); }, 900 + k * 500));
+  if (kind === 'bow') setTimeout(() => { c.g.userData.bowT = 2.4; npcSay(c, pick(BOW_BACK), 3); }, 1100);
+  else if (kind === 'wave') npcOn().forEach((n, k) => setTimeout(() => { n.g.userData.waveT = 2.8; if (k === 0) npcSay(n, pick(WAVE_BACK), 3); }, 900 + k * 500));
   else if (kind === 'poem' && Math.random() < 0.6) setTimeout(() => npcSay(c, NPC_REPLY_POEM[Math.floor(Math.random() * NPC_REPLY_POEM.length)], 4), 2600);
 }
 
@@ -2698,7 +2736,7 @@ function syncPeers(list) {
           setTimeout(() => { me.userData.bowT = 2.4; myEmote = { k: 'thank', i: 0, n: ++emoteSeq, to: from }; sendEmote(); }, 2600);
         } else { const r = others.get(em.to); if (r) flyTea(o.g, r.g); }
       } else if (!first && em.k === 'thank') {
-        o.g.userData.bowT = 2.4; say(o.g, '고맙소, 잘 마시겠소', 4);
+        o.g.userData.bowT = 2.4; say(o.g, pick(THANKS), 4);
         if (em.to === S.tabId) toast(`${nm || nameFor(o.by, i)}님이 차를 받고 고개 숙여 고마워해요`);
       } else if (!first) {
         const list2 = em.k === 'poem' ? POEMS : em.k === 'tea' ? (em.give ? TEA_GIVE : TEA) : em.k === 'bow' ? BOW : em.k === 'wave' ? WAVE : null;
@@ -2716,7 +2754,7 @@ function syncPeers(list) {
     others.delete(peer); peerEmote.delete(peer);
   }
   if (arrived) magpieSoon();
-  if (arrived && npcOn().length) npcSay(npcOn()[0], '새 벗이 오셨구려. 어서 앉으시오', 5);
+  if (arrived && npcOn().length) npcSay(npcOn()[0], pick(NEW_FRIEND), 5);
   if (list.length) peersSeen = true;
 }
 syncPeers([]);
