@@ -759,7 +759,7 @@ function makeAngler(robe, opts = {}) {
   const fTop = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshLambertMaterial({ color: '#e0412c' })); fTop.position.y = 0.06;
   const fBot = new THREE.Mesh(new THREE.SphereGeometry(0.065, 8, 6), new THREE.MeshLambertMaterial({ color: '#fbf6ea' })); fBot.position.y = -0.02;
   float.add(fTop, fBot); scene.add(float);
-  g.userData = { root, body, head, arms, armL, armR, rodPivot, tip, line, float, cast: 0, castTarget: 0, bow: 0, bowT: 0, ph: Math.random() * 6, floatOff: new THREE.Vector3(1.9, 0, -3.6), armBase: armR.position.clone(), waveT: 0, beard, perch, snowCap, moss };
+  g.userData = { root, body, head, arms, armL, armR, rodPivot, tip, line, float, cast: 0, castTarget: 0, bow: 0, bowT: 0, ph: Math.random() * 6, floatOff: new THREE.Vector3(1.6, 0, -7.2), armBase: armR.position.clone(), waveT: 0, beard, perch, snowCap, moss };
   return g;
 }
 function makePerchBird() {
@@ -1990,7 +1990,7 @@ function say(angler, text, sec = 5) {
   b.el.textContent = text; b.el.style.opacity = 1; b.until = performance.now() / 1000 + sec;
 }
 
-function newSpot(u) { u.floatOff.set(0.8 + Math.random() * 2.6, 0, -2.6 - Math.random() * 2.2); }
+function newSpot(u) { u.floatOff.set(0.7 + Math.random() * 2.2, 0, -6.2 - Math.random() * 2.6); } // 찌는 발밑이 아니라 몇 걸음 앞 물에
 function castLine() {
   sfx.plop();
   setTimeout(() => ripple(me.userData.float.position, 1.4), 650);
