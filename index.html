@@ -2442,6 +2442,8 @@ function npcCall(fn) {
   if (GUIDE.mode !== 'come') { GUIDE.mode = 'come'; GUIDE.idle = 0; }
 }
 function elderCross() { if (GUIDE.bank !== S.bank && tutStep < 8) { GUIDE.bank = S.bank; GUIDE.x = mySeat().x + 20; GUIDE.tx = mySeat().x + 6; GUIDE.idle = 0; } }
+// 멈춰 선 쪽에서 계속 걸어, 그 사람을 지나쳐 간다
+function passOn(c, at) { const dir = c.x >= at ? -1 : 1; c.mode = 'stroll'; c.rest = false; c.passed = true; c.hush = performance.now() + 20000; c.tx = Math.max(-50, Math.min(50, at + dir * rand(12, 20))); }
 function updateElders(dt) {
   const mx = mySeat().x;
   for (const c of NPCS) {
@@ -2450,8 +2452,8 @@ function updateElders(dt) {
       c.on = true; c.g.visible = true; c.tag.hidden = false; c.x = (Math.random() < 0.5 ? -1 : 1) * 56; c.mode = 'stroll'; c.rest = true; c.idle = 0; c.tx = rand(-40, 40);
     }
     c.t += dt;
-    c.z += ((c.mode === 'come' ? mySeat().z + 0.25 : 2.6) - c.z) * Math.min(1, dt * 0.8); // 곁에 올 땐 나란히 선다
-    if (c.mode === 'come') { c.tx = mx + (c.x >= mx ? 2.3 : -2.3); if (Math.abs(c.x - mx) > 18) c.x = mx + Math.sign(c.x - mx) * 15; } // 멀리 있으면 화면 밖에서 가까이 와서 걸어 들어온다
+    c.z += (2.6 - c.z) * Math.min(1, dt * 0.8); // 곁에 와도 길 위, 한두 걸음 뒤에서 잠깐 멈춘다
+    if (c.mode === 'come') { c.tx = mx + (c.x >= mx ? 1.3 : -1.3); if (Math.abs(c.x - mx) > 18) c.x = mx + Math.sign(c.x - mx) * 15; } // 멀리 있으면 화면 밖에서 가까이 와서 걸어 들어온다
     // 내 뒤를 지나가다 가끔 툭 한마디. 너무 잦지 않게 두어 분에 한 번까지만
     const near = c.bank === S.bank && Math.abs(c.x - mx) < 2.5;
     if (near && !c.passed && c.mode === 'stroll' && tutStep >= 8) {
@@ -2463,12 +2465,13 @@ function updateElders(dt) {
     else if (c.idle > 0) c.idle -= dt;
     else if (c.mode === 'come') { // 곁에 닿았다: 나를 보고 할 일을 한다
       c.head = (mx > c.x ? -1 : 1) * 0.9;
-      const fn = c.q.shift();
-      if (fn) { fn(); c.idle = 5; } else { c.mode = 'stroll'; c.idle = rand(6, 12); }
+      const fn = c.q.shift(); if (fn) fn();
+      c.idle = fn ? 1.6 : 0.4;
+      if (!c.q.length) passOn(c, mx); // 툭 한마디 던지고 가던 길을 간다
     } else if (c.mode === 'visit') {
       c.head = (c.visitX > c.x ? -1 : 1) * 0.9; c.g.userData.bowT = 2.4;
       if (c.bank === S.bank) npcSay(c, Math.random() < 0.35 ? pick(CHEER) : pick(ELDER_HELLO), 5, true);
-      c.mode = 'stroll'; c.idle = rand(5, 9);
+      c.idle = 1.4; passOn(c, c.visitX);
     } else if (c.mode === 'leave') { c.on = false; c.g.visible = false; c.tag.hidden = true; c.away = rand(300, 720); c.mode = 'stroll'; continue; }
     else if (!c.rest) { c.rest = true; c.head = Math.random() < 0.6 ? 0 : c.head; c.idle = rand(6, 16); } // 멈춰 서서 강을 본다
     else { // 다음 갈 곳
@@ -2476,7 +2479,7 @@ function updateElders(dt) {
       if (c.guide && c.q.length) { c.mode = 'come'; continue; }
       if (!(c.guide && tutStep < 8) && Math.random() < 0.45) { c.mode = 'leave'; c.tx = (c.bank === S.bank ? c.x >= mx : c.x >= 0) ? 58 : -58; continue; } // 길 끝으로 걸어 나간다
       const peers = [...others.values()].filter(o => o.bank === c.bank && o.seatX != null);
-      if (peers.length && Math.random() < 0.3) { const o = peers[Math.floor(Math.random() * peers.length)]; c.mode = 'visit'; c.visitX = o.seatX; c.tx = o.seatX + (Math.random() < 0.5 ? -1.6 : 1.6); }
+      if (peers.length && Math.random() < 0.3) { const o = peers[Math.floor(Math.random() * peers.length)]; c.mode = 'visit'; c.visitX = o.seatX; c.tx = o.seatX + (c.x >= o.seatX ? 1.3 : -1.3); }
       else if (c.guide && tutStep < 8) c.tx = mx + (Math.random() < 0.5 ? -1 : 1) * rand(6, 10); // 처음 온 사람 곁을 맴돈다
       else {
         if (!c.guide && Math.random() < 0.2 && (c.bank !== S.bank || Math.abs(c.x - mx) > 26)) { c.bank = c.bank === 'far' ? 'near' : 'far'; c.x = (Math.random() < 0.5 ? -1 : 1) * 52; } // 안 보이는 데서 나룻배로 건너간다
