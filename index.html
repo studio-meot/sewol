@@ -132,7 +132,7 @@ body.iconsonly .hint { opacity: 0; }
 .tag.far { font-size: 10px; opacity: .85; }
 .tag.far .nm { padding: 1px 6px; }
 .tag .nm i:empty { display: none; }
-.bubble { position: absolute; transform: translate(-50%, -100%); background: var(--paper); color: var(--ink); font-family: var(--font-display); font-size: 14px; padding: 7px 13px; border-radius: 14px; max-width: 220px; white-space: normal; text-align: center; text-wrap: balance; box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: opacity .4s; }
+.bubble { position: absolute; transform: translate(-50%, -100%); background: var(--paper); color: var(--ink); font-family: var(--font-display); font-size: 14px; padding: 7px 13px; border-radius: 14px; width: max-content; white-space: nowrap; /* 말풍선은 늘 한 줄. 화면 가장자리에 걸리면 줄바꿈하지 않고 그대로 잘린다 */ text-align: center; text-wrap: balance; box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: opacity .4s; }
 .bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--paper); }
 
 .sheet { position: fixed; z-index: 8; top: calc(64px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: min(320px, calc(100vw - 32px)); max-height: min(70vh, 520px); display: flex; flex-direction: column; background: rgba(27,23,18,.86); border: 1px solid var(--glass-line); border-radius: 18px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
@@ -2926,7 +2926,7 @@ async function saveRemote() {
 })();
 
 // 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
-if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, nbEmote, nbReact, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; } };
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, nbEmote, nbReact, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; }, applyLook };
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
