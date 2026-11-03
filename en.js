@@ -14,7 +14,7 @@
   const HAN = /[가-힣]/;
   const D = {
     // 겉
-    '세월낚시터': 'Sewol: Fishing for Time', '반계 강가': 'Still Water', '위수 · 세월낚시터': 'Wei River · Fishing for Time',
+    '세월낚시터': 'Fishing for Time', '반계 강가': 'Still Water', '위수 · 세월낚시터': 'Wei River · Fishing for Time',
     '건너가기': 'Cross', '돌아오기': 'Return', '세월 장부': 'Ledger of Time', '공유': 'Share', '이번에 낚은 세월': 'TIME CAUGHT THIS SITTING',
     '소원등에 적을 두 글자를 골라요': 'Choose a wish to write on your lantern',
     '낚싯대 드리우기': 'Cast line', '낚싯대 거두기': 'Reel in', '읍하기': 'Bow', '손 흔들기': 'Wave', '차 한잔': 'Tea', '시 한 수': 'Poem', '소원등': 'Lantern', '장부에 적기': 'Record',
@@ -347,7 +347,7 @@
     [/^반계 강가에서 (.+)째 세월을 낚는 중이에요\. 바위 하나 비워 둘게요\.$/, m => `I've been fishing for time on Still Water Riverbank for ${m[1]}. I'll save you a rock.`],
     [/^덕담 · (.+)\((.+)\) — (.+)$/, m => `Blessing · ${t(m[1])} (${m[2]}) — ${t(m[3])}`],
     [/^조과\(釣果\) · (.+)$/, m => `Catch (釣果) · ${t(m[1])}`],
-    [/^세월카드-(\d+) days?\.png$/, m => `sewol-card-${m[1]}days.png`],
+    [/^세월카드-(\d+) days?\.png$/, m => `fishing-for-time-card-${m[1]}days.png`],
     [/^(.+)님께 차 한잔을 건넸어요$/, m => `You offered ${t(m[1])} a cup of tea`],
     [/^(.+)님이 차 한잔을 건넸어요$/, m => `${t(m[1])} offered you a cup of tea`],
     [/^(.+)님이 차를 받고 고개 숙여 고마워해요$/, m => `${t(m[1])} took the tea and bowed in thanks`],
