@@ -14,7 +14,7 @@
   const HAN = /[가-힣]/;
   const D = {
     // 겉
-    '세월낚시터': 'Sewol: Fishing for Time', '반계 강가': 'Bangye Riverbank', '위수 · 세월낚시터': 'Wei River · Fishing for Time',
+    '세월낚시터': 'Sewol: Fishing for Time', '반계 강가': 'Still Water', '위수 · 세월낚시터': 'Wei River · Fishing for Time',
     '건너가기': 'Cross', '돌아오기': 'Return', '세월 장부': 'Ledger of Time', '공유': 'Share', '이번에 낚은 세월': 'TIME CAUGHT THIS SITTING',
     '소원등에 적을 두 글자를 골라요': 'Choose a wish to write on your lantern',
     '낚싯대 드리우기': 'Cast line', '낚싯대 거두기': 'Reel in', '읍하기': 'Bow', '손 흔들기': 'Wave', '차 한잔': 'Tea', '시 한 수': 'Poem', '소원등': 'Lantern', '장부에 적기': 'Record',
@@ -33,7 +33,7 @@
     '노인장, 무엇을 낚고 계십니까': 'Old man, what are you fishing for?',
     '건너편 강가로 건너가기': 'Cross to the far bank', '이쪽 강가로 돌아오기': 'Return to this bank', '물소리 켜기': 'Turn on river sounds', '물소리 끄기': 'Turn off river sounds', '강가 공유하기': 'Share the riverbank',
     '그리는 중…': 'Drawing…', '다시 눌러 주세요': 'Tap again', '공유가 안 됐어요': "Couldn't share", '저장 · 문구 복사됨': 'Saved · text copied', '저장했어요': 'Saved',
-    '반계 강가 · 세월 장부': 'Bangye Riverbank · Ledger of Time', '곧은 바늘로 이만큼의 세월을 낚았다': 'This much time, caught on a straight hook',
+    '반계 강가 · 세월 장부': 'Still Water · Ledger of Time', '곧은 바늘로 이만큼의 세월을 낚았다': 'This much time, caught on a straight hook',
     '봄': 'Spring', '여름': 'Summer', '가을': 'Autumn', '겨울': 'Winter', '밤': 'Night', '새벽': 'Dawn', '낮': 'Day', '해질녘': 'Dusk', '눈': 'Snow', '비': 'Rain',
     '숨 한 번에 하루가 흐릅니다': 'One breath, one day',
 
@@ -306,13 +306,13 @@
     '마음이 급하면 차 한잔 하시오': "If you're in a hurry, have some tea", '강물처럼 천천히 가시오': 'Go slowly, like the river',
 
     // 건너가기·공유
-    '나룻배를 타고 건너편 강가에 앉았어요. 반계 강가가 마주 보여요.': 'You took the ferry and sat on the far bank. Bangye Riverbank is right across from you.',
-    '다시 반계 강가로 건너왔어요.': "You're back on Bangye Riverbank.",
+    '나룻배를 타고 건너편 강가에 앉았어요. 반계 강가가 마주 보여요.': 'You took the ferry and sat on the far bank. Still Water Riverbank is right across from you.',
+    '다시 반계 강가로 건너왔어요.': "You're back on Still Water Riverbank.",
     '물고기는 안 잡혀요. 곧은 바늘로 세월만 낚는 강가예요. 바위 하나 비워 둘게요.': "No fish get caught here. It's a riverbank where you fish only for time, with a straight hook. I'll save you a rock.",
     '링크를 복사했어요. 벗에게 건네 보세요.': 'Link copied. Pass it to a friend.',
     '👤 누가 강가에 와서 앉았어요': '👤 Someone came and sat by the river', '👋 강 건너에서 손을 흔들어요': '👋 Someone is waving from across the river',
     '자리를 비운 사이엔 강물만 흘렀어요. 세월은 앉아 있어야 낚여요.': 'While you were away, only the river flowed. Time can only be caught while you sit.',
-    '반계 강가에 오신 걸 환영해요. 바위 하나 비워 두었어요.': "Welcome to Bangye Riverbank. I've saved you a rock.",
+    '반계 강가에 오신 걸 환영해요. 바위 하나 비워 두었어요.': "Welcome to Still Water Riverbank. I've saved you a rock.",
 
     // 머리말
     '미끼 없는 곧은 바늘로 세월을 낚는 강가. 숨 한 번에 하루가 흐르고, 십 년을 버티면 왕이 찾아옵니다.': 'A riverbank where you fish for time with a straight, baitless hook. One breath is one day, and if you last ten years, a king comes.',
@@ -343,8 +343,8 @@
     [/^(봄|여름|가을|겨울)[이을] (왔어요|통째로 낚았어요\. 물고기는 여전히 한 마리도 없어요\.)$/, m => m[2] === '왔어요' ? `${t(m[1])} has come` : `You caught a whole ${t(m[1]).toLowerCase()}. Still not a single fish.`],
     [/^장부에 적은 세월 (.+)$/, m => `Recorded ${m[1]}`],
     [/^이번에 적은 세월 (.+)$/, m => `Recorded this time: ${m[1]}`],
-    [/^반계 강가에서 곧은 바늘로 세월 (.+)을 낚아 장부에 적었다\. 조과: (.+)\.$/, m => `On Bangye Riverbank, I caught ${m[1]} of time on a straight hook and wrote it in the ledger. Catch: ${t(m[2])}.`],
-    [/^반계 강가에서 (.+)째 세월을 낚는 중이에요\. 바위 하나 비워 둘게요\.$/, m => `I've been fishing for time on Bangye Riverbank for ${m[1]}. I'll save you a rock.`],
+    [/^반계 강가에서 곧은 바늘로 세월 (.+)을 낚아 장부에 적었다\. 조과: (.+)\.$/, m => `On Still Water Riverbank, I caught ${m[1]} of time on a straight hook and wrote it in the ledger. Catch: ${t(m[2])}.`],
+    [/^반계 강가에서 (.+)째 세월을 낚는 중이에요\. 바위 하나 비워 둘게요\.$/, m => `I've been fishing for time on Still Water Riverbank for ${m[1]}. I'll save you a rock.`],
     [/^덕담 · (.+)\((.+)\) — (.+)$/, m => `Blessing · ${t(m[1])} (${m[2]}) — ${t(m[3])}`],
     [/^조과\(釣果\) · (.+)$/, m => `Catch (釣果) · ${t(m[1])}`],
     [/^세월카드-(\d+) days?\.png$/, m => `sewol-card-${m[1]}days.png`],
