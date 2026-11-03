@@ -86,6 +86,11 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .actions button:hover { background: rgba(243,230,204,.1); }
 .actions button:disabled { opacity: .35; cursor: default; background: none; }
 .actions button.cool { opacity: .5; transition: opacity .3s; }
+/* 처음 몇 초만 이름을 보여 주고, 그다음엔 그림만 남긴다 */
+.actions button, .hint { transition: font-size .6s ease, gap .6s ease, min-width .6s ease, padding .6s ease, opacity .6s ease; }
+body.iconsonly .actions button { font-size: 0; gap: 0; min-width: 46px; padding: 10px 6px; }
+body.iconsonly .actions .cast { min-width: 58px; }
+body.iconsonly .hint { opacity: 0; }
 /* 소원등 고르기 */
 .bar .wishpick { pointer-events: auto; }
 .wishpick { border-radius: 18px; padding: 12px 12px 10px; margin-bottom: 8px; }
@@ -2544,6 +2549,8 @@ let cheerCool = 0;
 const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 잠잠해졌소', '나도 한 수 배워 가오', '음, 바늘보다 시가 더 곧구려', '허허, 그 시 어디서 배웠소?', '듣기 좋구려. 한 번만 더 읊어 주시오', '강물도 귀를 기울였겠소', '시 한 수에 차 한잔이 생각나는구려'];
 // 처음 온 사람 곁을 맴돌며 해 보인다. 어디까지 했는지는 브라우저에 남겨 둔다
 let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 50, greeted = tutStep < 8 || store.get('greetDay') === kstDay(); // 처음 온 사람에겐, 그리고 하루 두 번은 '또 오셨구려' 인사를 하지 않는다
+// 처음 온 사람은 안내가 끝난 뒤, 다시 온 사람은 3초 뒤에 버튼 이름을 거둔다
+(function labelsOff() { if (tutStep >= 8) setTimeout(() => document.body.classList.add('iconsonly'), 3000); else setTimeout(labelsOff, 1000); })();
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
 const G = () => GUIDE;
 function tickNpc(dt) {
