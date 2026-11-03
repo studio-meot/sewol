@@ -20,7 +20,7 @@
     '낚싯대 드리우기': 'Cast line', '낚싯대 거두기': 'Reel in', '읍하기': 'Bow', '손 흔들기': 'Wave', '차 한잔': 'Tea', '시 한 수': 'Poem', '소원등': 'Lantern', '장부에 적기': 'Record',
     '미끼 없는 곧은 바늘입니다. 화면을 끌면 강가를 둘러볼 수 있어요.': 'A straight hook, no bait. Drag the screen to look around the riverbank.',
     '찌가 흔들려도 괜찮아요. 거둬도 세월은 계속 흘러요.': "It's fine if the float bobs. Even if you reel in, time keeps flowing.",
-    '닫기': 'Close', '내가 장부에 적은 세월': 'Time I recorded', '강가 모두가 적은 세월': 'Time recorded by everyone',
+    '닫기': 'Close', '메뉴': 'Menu', '내가 장부에 적은 세월': 'Time I recorded', '강가 모두가 적은 세월': 'Time recorded by everyone',
     '순위는 한자리에서 가장 오래 앉아 있던 세월 순이에요. 이번 주 장부는 월요일마다 새로 펼쳐요.': "Ranked by the longest single sitting. This week's ledger opens fresh every Monday.",
     '강가에서 만난 오랜 벗': 'Old friends met by the river', '이번 주': 'This week', '모든 세월': 'All time',
     '아직 장부에 오른 사람이 없어요. 세월을 낚은 뒤 ‘장부에 적기’를 누르면 첫 줄에 오릅니다.': "No one is in the ledger yet. Catch some time, tap 'Record', and yours will be the first line.",

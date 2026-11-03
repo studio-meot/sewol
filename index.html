@@ -75,6 +75,16 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .clock .val { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 6.4vw, 40px); font-variant-numeric: tabular-nums; text-shadow: 0 2px 18px rgba(0,0,0,.55); line-height: 1.25; }
 .clock .meta { display: inline-block; font-size: 12px; color: var(--paper); margin-top: 4px; background: rgba(27,23,18,.5); padding: 3px 11px; border-radius: 999px; }
 .clock.idle .val { opacity: .55; }
+/* 버튼 이름을 거두면, 세월 시계는 작아져 강가 이름 밑으로 비켜 앉고 오른쪽 위 메뉴는 접힌다 */
+body .clock { transition: opacity 3s ease, top .6s ease, left .6s ease, transform .6s ease; }
+.clock small, .clock .val, .clock .meta { transition: font-size .6s ease, padding .6s ease; }
+body.iconsonly .clock { left: max(16px, env(safe-area-inset-left, 0px)); transform: none; top: calc(68px + env(safe-area-inset-top, 0px)); width: auto; text-align: left; }
+body.iconsonly .clock small { font-size: 10px; letter-spacing: .1em; }
+body.iconsonly .clock .val { font-size: 20px; }
+body.iconsonly .clock .meta { font-size: 11px; padding: 2px 9px; margin-top: 2px; }
+.tools #btnMenu { display: none; }
+body.iconsonly .tools #btnMenu { display: flex; }
+body.iconsonly .tools:not(.open) > button:not(#btnMenu) { display: none; }
 
 #toast { padding: 9px 18px; font-size: 14px; max-width: calc(100vw - 32px); text-align: center; text-wrap: balance; transition: opacity .5s, transform .5s; pointer-events: none; }
 #toast.hide { opacity: 0; transform: translateY(6px); }
@@ -187,6 +197,7 @@ body.iconsonly .hint { opacity: 0; }
     <button id="btnLedger" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M6 3.5h10.5L19 6v14.5H6z"/><path d="M9 8.5h7M9 12h7M9 15.5h4.5"/></svg><span class="lbl">세월 장부</span></button>
     <button id="btnShare" aria-label="강가 공유하기"><svg viewBox="0 0 24 24"><path d="M12 3.5v11"/><path d="M8 7.5l4-4 4 4"/><path d="M6 11.5H5v8.5h14v-8.5h-1"/></svg><span class="lbl">공유</span></button>
     <button id="btnLang" class="lang"></button>
+    <button id="btnMenu" aria-label="메뉴" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M5 7.5h14M5 12h14M5 16.5h14"/></svg></button>
   </div>
 </div>
 
@@ -2550,6 +2561,13 @@ const NPC_REPLY_POEM = ['허허, 좋은 시로다', '그 시 한 줄에 강이 �
 // 처음 온 사람 곁을 맴돌며 해 보인다. 어디까지 했는지는 브라우저에 남겨 둔다
 let termSaid = false, tutStep = store.get('tut', 0), tutT = 0, npcT = 50, greeted = tutStep < 8 || store.get('greetDay') === kstDay(); // 처음 온 사람에겐, 그리고 하루 두 번은 '또 오셨구려' 인사를 하지 않는다
 // 처음 온 사람은 안내가 끝난 뒤, 다시 온 사람은 3초 뒤에 버튼 이름을 거둔다
+{
+  const tools = document.querySelector('.tools'), mb = $('btnMenu');
+  const setOpen = v => { tools.classList.toggle('open', v); mb.setAttribute('aria-expanded', String(v)); };
+  mb.onclick = () => setOpen(!tools.classList.contains('open'));
+  tools.addEventListener('click', e => { const b = e.target.closest('button'); if (b && b !== mb && b.id !== 'btnSound') setOpen(false); });
+  document.addEventListener('pointerdown', e => { if (!tools.contains(e.target)) setOpen(false); });
+}
 (function labelsOff() { if (tutStep >= 8) setTimeout(() => document.body.classList.add('iconsonly'), 3000); else setTimeout(labelsOff, 1000); })();
 const tutNext = n => { tutStep = n == null ? tutStep + 1 : n; tutT = 0; store.set('tut', tutStep); };
 const G = () => GUIDE;
