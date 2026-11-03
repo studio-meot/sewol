@@ -132,7 +132,7 @@ body.iconsonly .hint { opacity: 0; }
 .tag.far { font-size: 10px; opacity: .85; }
 .tag.far .nm { padding: 1px 6px; }
 .tag .nm i:empty { display: none; }
-.bubble { position: absolute; transform: translate(-50%, -100%); background: var(--paper); color: var(--ink); font-family: var(--font-display); font-size: 14px; padding: 7px 13px; border-radius: 14px; width: max-content; white-space: nowrap; /* 말풍선은 늘 한 줄. 화면 가장자리에 걸리면 줄바꿈하지 않고 그대로 잘린다 */ text-align: center; text-wrap: balance; box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: opacity .4s; }
+.bubble { position: absolute; transform: translate(-50%, -100%); background: var(--paper); color: var(--ink); font-family: var(--font-display); font-size: 14px; padding: 7px 13px; border-radius: 14px; width: max-content; white-space: pre; /* 화면 가장자리에 걸려도 칸이 좁아지지 않는다. 줄은 twoLines()가 나눈다 */ text-align: center; text-wrap: balance; box-shadow: 0 6px 20px rgba(0,0,0,.3); transition: opacity .4s; }
 .bubble::after { content: ""; position: absolute; left: 50%; bottom: -6px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--paper); }
 
 .sheet { position: fixed; z-index: 8; top: calc(64px + env(safe-area-inset-top, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: min(320px, calc(100vw - 32px)); max-height: min(70vh, 520px); display: flex; flex-direction: column; background: rgba(27,23,18,.86); border: 1px solid var(--glass-line); border-radius: 18px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
@@ -2009,10 +2009,23 @@ function updateClock() {
 }
 
 const bubbles = new Map(); // anglerGroup -> {el, until}
+// 긴 말은 문장(또는 쉼표)이 끊기는 자리에서 두 줄로. 짧은 말은 늘 한 줄
+function twoLines(s) {
+  const long = /[가-힣]/.test(s) ? 18 : 34;
+  if (s.length <= long) return s;
+  const mid = s.length / 2;
+  let best = -1;
+  for (const re of [/[.?!…] /g, /, /g, / /g]) {
+    for (const m of s.matchAll(re)) { const at = m.index + m[0].length - 1; if (best < 0 || Math.abs(at - mid) < Math.abs(best - mid)) best = at; }
+    if (best > 0 && Math.abs(best - mid) < s.length * 0.3) break;
+    if (re.source !== ' ') best = -1;
+  }
+  return best > 0 ? s.slice(0, best) + '\n' + s.slice(best + 1) : s;
+}
 function say(angler, text, sec = 5) {
   let b = bubbles.get(angler);
   if (!b) { const el = document.createElement('div'); el.className = 'bubble'; $('tags').appendChild(el); b = { el }; bubbles.set(angler, b); }
-  b.el.textContent = text; b.el.style.opacity = 1; b.until = performance.now() / 1000 + sec;
+  b.el.textContent = twoLines(window.SEWOL_T ? SEWOL_T(text) : text); b.el.style.opacity = 1; b.until = performance.now() / 1000 + sec;
 }
 
 function newSpot(u) { u.floatOff.set(0.7 + Math.random() * 2.2, 0, -6.2 - Math.random() * 2.6); } // 찌는 발밑이 아니라 몇 걸음 앞 물에
