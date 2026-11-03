@@ -67,6 +67,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 .tools button:hover { background: rgba(243,230,204,.1); }
 .tools svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .count { font-variant-numeric: tabular-nums; }
+.tools .lang { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
 
 .clock { position: fixed; left: 50%; transform: translateX(-50%); top: calc(70px + env(safe-area-inset-top, 0px)); text-align: center; pointer-events: none; z-index: 4; width: min(92vw, 420px); }
 .clock small { display: block; font-size: 12px; letter-spacing: .14em; color: var(--paper); text-shadow: 0 1px 8px rgba(0,0,0,.7); }
@@ -161,6 +162,9 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
   .actions .cast { min-width: 78px; font-size: 13px; }
   .actions svg { width: 20px; height: 20px; }
   .tools .lbl { display: none; }
+  .place { padding-right: 12px; gap: 8px; }
+  .place b { white-space: nowrap; font-size: 15px; }
+  .tools button { min-width: 32px; padding: 0 7px; }
 }
 @media (prefers-reduced-motion: reduce) { .king { animation: none; } #toast { transition: none; } }
 </style>
@@ -176,6 +180,7 @@ button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
     <button id="btnSound" aria-label="물소리 켜기"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path id="snd-x" d="M16 9.5l4 5M20 9.5l-4 5"/><path id="snd-on" d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" style="display:none"/></svg></button>
     <button id="btnLedger" aria-expanded="false"><svg viewBox="0 0 24 24"><path d="M6 3.5h10.5L19 6v14.5H6z"/><path d="M9 8.5h7M9 12h7M9 15.5h4.5"/></svg><span class="lbl">세월 장부</span></button>
     <button id="btnShare" aria-label="강가 공유하기"><svg viewBox="0 0 24 24"><path d="M12 3.5v11"/><path d="M8 7.5l4-4 4 4"/><path d="M6 11.5H5v8.5h14v-8.5h-1"/></svg><span class="lbl">공유</span></button>
+    <button id="btnLang" class="lang"></button>
   </div>
 </div>
 
@@ -2371,6 +2376,12 @@ const wake = () => { lastTouch = performance.now(); document.body.classList.remo
 setInterval(() => { if (performance.now() - lastTouch > 120000) document.body.classList.add('still'); }, 5000);
 
 // 탭 제목: 다른 탭을 보고 있어도 강가가 말을 건다
+// 지금 말이 아닌 쪽 이름을 띄워 두고, 누르면 그 말로 다시 연다 (앉아 있던 세월은 그대로 이어진다)
+{
+  const en = window.SEWOL_LANG === 'en', b = $('btnLang');
+  b.textContent = en ? 'KR' : 'EN'; b.setAttribute('aria-label', en ? 'View in Korean' : 'View in English');
+  b.onclick = () => { try { localStorage.setItem('sewol.lang', en ? 'ko' : 'en'); } catch {} const u = new URL(location.href); u.searchParams.delete('lang'); location.replace(u.href); };
+}
 const BASE_TITLE = document.title;
 let titleNote = '', titleFlip = false;
 function noteTitle(msg, weak) { if (document.hidden && !(weak && titleNote)) titleNote = msg; }

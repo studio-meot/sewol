@@ -9,7 +9,7 @@
   if (lang !== 'en') return;
   document.documentElement.lang = 'en';
   // 영어 낱말은 길어서, 소원 글자 간격을 좁히고 십장생 칸에는 한자를 보인다
-  document.head.insertAdjacentHTML('beforeend', '<style>.wishpick .wg button{letter-spacing:0;font-size:14px}.long .chips i{font-size:0}.long .chips i::before{content:attr(data-ch);font-size:12px}</style>');
+  document.head.insertAdjacentHTML('beforeend', '<style>.wishpick .wg button{letter-spacing:0;font-size:14px}.long .chips i{font-size:0}.long .chips i::before{content:attr(data-ch);font-size:12px}@media (max-width:400px){html[lang=en] .place b{font-size:13.5px}html[lang=en] .tools button{padding:0 5px;min-width:30px}}</style>');
 
   const HAN = /[가-힣]/;
   const D = {
