@@ -804,8 +804,9 @@ function makePerchBird() {
 // 앉아 있던 세월만큼 모습이 변한다: 수염이 길어지고, 한 달이면 물새가 앉고, 일 년이면 바위에 이끼가 낀다
 function setAge(a, days) {
   const u = a.userData; if (!u.perch) return;
-  const L = 1 + Math.min(1.7, days / 1000), w = 1 + Math.min(0.45, days / 2500);
-  u.beard.scale.set(w, L, w); u.beard.position.set(0, -0.42 - (L - 1) * 0.34, -0.26 - (L - 1) * 0.09);
+  // 턱에 붙은 채로 자라며 조금씩 앞으로 눕는다. 무릎께에서 멈춰 바위를 뚫고 내려가지 않는다
+  const L = 1 + Math.min(0.5, days / 2000), w = 1 + Math.min(0.45, days / 2500), th = 0.25 + (L - 1) * 0.6, h = 0.36 * L;
+  u.beard.scale.set(w, L, w); u.beard.rotation.x = Math.PI + th; u.beard.position.set(0, -0.071 - Math.cos(th) * h, -0.171 - Math.sin(th) * h);
   u.perch.visible = days >= 30;
   u.moss.visible = days >= 360;
   u.snowCap.visible = curSeason === 3 && days >= 20;
@@ -2939,7 +2940,7 @@ async function saveRemote() {
 })();
 
 // 주소 뒤에 ?debug 를 붙이면 점검용으로 속을 들여다볼 수 있다
-if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, nbEmote, nbReact, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; }, applyLook };
+if (new URLSearchParams(location.search).has('debug')) window.__sewol = { S, me, others, NPCS, FAUNA, mySeat, placeMe, pushPresence, seatsOf, cam, camera, spawnLantern, lanterns, scene, makeBird, makeDeer, makeRabbit, BIRDS, lam, peekNow: fx => { deer = null; startPeek(fx); return deer && { x: deer.g.position.x, hi: deer.hi }; }, flockNow: () => { flocks.forEach(f => f.birds.forEach(b => scene.remove(b))); flocks.length = 0; nextFlock = 0; }, nbEmote, nbReact, leap: (x, z) => startLeap({ x, z }), holdLeaps: () => { nextLeap = 1e9; }, applyLook, neighbors, termSay: () => { termSaid = true; npcCall(() => npcSay(GUIDE, TERM[5], 6, true)); }, teaNow: () => npcCall(() => npcTea(GUIDE)) };
 
 /* ---------------- loop ---------------- */
 const clock = new THREE.Clock();
